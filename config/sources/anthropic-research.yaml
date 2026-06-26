@@ -1,4 +1,4 @@
-fetcher: selenium
+fetcher: playwright
 item_selector: a[href*="/research/"]
 link_selector: a[href*="/research/"]
 allowed_url_prefixes:

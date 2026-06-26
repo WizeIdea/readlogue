@@ -430,19 +430,12 @@ def _load_requests():
     return requests
 
 
-def _load_selenium_driver():
+def _load_playwright_browser():
     try:
-        from selenium import webdriver
-        from selenium.webdriver.chrome.options import Options
+        from playwright.sync_api import sync_playwright
     except ModuleNotFoundError as exc:  # pragma: no cover - optional in tests.
-        raise RuntimeError("selenium is required for selenium-based fetching") from exc
-
-    options = Options()
-    options.add_argument("--headless=new")
-    options.add_argument("--no-sandbox")
-    options.add_argument("--disable-dev-shm-usage")
-    options.add_argument("--disable-gpu")
-    return webdriver.Chrome(options=options)
+        raise RuntimeError("playwright is required for browser-based fetching") from exc
+    return sync_playwright
 
 
 def _load_beautifulsoup():
@@ -454,13 +447,15 @@ def _load_beautifulsoup():
 
 
 def _fetch_html(url: str, fetcher: str, timeout: int) -> str:
-    if fetcher == "selenium":
-        driver = _load_selenium_driver()
-        try:
-            driver.get(url)
-            return driver.page_source
-        finally:
-            driver.quit()
+    if fetcher == "playwright":
+        playwright = _load_playwright_browser()
+        with playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            page = browser.new_page()
+            page.goto(url, timeout=timeout * 1000)
+            html = page.content()
+            browser.close()
+            return html
 
     requests = _load_requests()
     response = requests.get(url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})

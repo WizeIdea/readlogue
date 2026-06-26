@@ -1,3 +1,18 @@
+Metadata-Version: 2.4
+Name: reader
+Version: 0.1.0
+Summary: RSS and news reader with ML-friendly storage
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: beautifulsoup4>=4.12
+Requires-Dist: feedparser>=6.0
+Requires-Dist: playwright>=1.40
+Requires-Dist: requests>=2.31
+Requires-Dist: streamlit>=1.36
+Requires-Dist: PyYAML>=6.0
+Provides-Extra: dev
+Requires-Dist: pytest>=8.0; extra == "dev"
+
 # Readlogue
 
 Readlogue is a Python RSS/news reader focused on preserving article data for future ML work.
@@ -82,7 +97,7 @@ Every source entry should define these fields:
 
 For non-RSS sources, the profile file may also define:
 
-- `fetcher`: `requests` or `playwright`.
+- `fetcher`: `requests` or `selenium`.
 - `item_selector` and `link_selector`: how article entries are discovered.
 - `title_selector` / `title_selectors`: how the title is extracted.
 - `date_selectors` and `date_formats`: how published dates are parsed.

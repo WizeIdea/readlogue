@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+src/reader/__init__.py
+src/reader/config.py
+src/reader/export.py
+src/reader/ingest.py
+src/reader/scrapers.py
+src/reader/storage.py
+src/reader.egg-info/PKG-INFO
+src/reader.egg-info/SOURCES.txt
+src/reader.egg-info/dependency_links.txt
+src/reader.egg-info/requires.txt
+src/reader.egg-info/top_level.txt
+tests/test_export.py
+tests/test_scrapers.py
+tests/test_storage.py
