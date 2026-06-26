@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-06-26
+
+### Added
+- RSS sources now fetch the full article page for each feed entry, extracting complete content and saving raw HTML to the data repo — same treatment as listing and API tag sources
+- RSS metadata (title, published_at, source_category, author) from the feed is used as fallback when the scraped page doesn't provide those fields
+
+### Changed
+- `parse_rss_feed()` return values are now used as metadata fallback rather than primary content; the actual content comes from `extract_article()` on the article page
+- All source kinds (RSS, listing, api_tag, direct) now consistently produce Markdown content and raw HTML files
+
 ## [0.6.0] - 2026-06-26
 
 ### Added

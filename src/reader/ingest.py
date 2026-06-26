@@ -80,16 +80,21 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
                 continue
 
             if source.kind == "rss":
-                articles: list[ArticleRecord | None] = []
+                articles = []
                 raw_articles = parse_rss_feed(source.name, source.url)
                 for raw in raw_articles:
-                    quality = validate_content(raw.title, raw.content, raw.url, source.name)
-                    if not quality.is_valid:
-                        log_ingestion_failure(connection, source.name, raw.url, quality.reason or "unknown validation failure")
-                        logger.warning("Skipping article %s from '%s': %s", raw.url, source.name, quality.reason)
+                    # Fetch the full article page for complete content + raw HTML
+                    record = _fetch_article(connection, raw.url, source.name, source.url, None, None, raw_html_dir=raw_html_dir)
+                    if record is None:
                         skipped_items += 1
                         continue
-                    articles.append(raw)
+                    # Use RSS feed metadata as fallback if the scraper didn't find them
+                    object.__setattr__(record, "title", record.title or raw.title)
+                    object.__setattr__(record, "published_at", record.published_at or raw.published_at)
+                    object.__setattr__(record, "source_category", record.source_category or raw.source_category)
+                    object.__setattr__(record, "author", record.author or raw.author)
+                    object.__setattr__(record, "source_scraper", source.scraper)
+                    articles.append(record)
             elif source.kind == "api_tag":
                 profile = load_listing_profile(source.config_path)
                 tag = profile.api_tag or source.settings.get("tag") or source.name

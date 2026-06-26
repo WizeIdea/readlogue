@@ -30,15 +30,16 @@ def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
         url = entry.get("link", "").strip()
         if not url:
             continue
-        summary = entry.get("summary", "")
+        summary_html = entry.get("summary", "")
+        summary_markdown = _html_to_markdown(summary_html) if summary_html else ""
         articles.append(
             ArticleRecord(
                 source_name=source_name,
                 source_url=source_url,
                 url=url,
                 title=entry.get("title", url),
-                summary=summary,
-                content=summary,
+                summary=summary_markdown,
+                content=summary_markdown,
                 published_at=entry.get("published") or entry.get("updated"),
                 source_scraper="rss",
                 source_category=_extract_rss_category(entry),

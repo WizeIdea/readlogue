@@ -17,7 +17,7 @@ Readlogue is a Python RSS/news reader focused on preserving article data for fut
 - `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, exports, and raw HTML file storage.
 - `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` returns both cleaned Markdown content and raw HTML for ML pipelines.
 - `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
-- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival.
+- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival. RSS sources now fetch the full article page for each entry, not just the feed summary.
 - `src/reader/export.py` builds CSV and JSONL datasets.
 - `streamlit_app.py` is the UI entrypoint; displays a warning banner when the last ingestion skipped articles.
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually using a dual-repo checkout pattern.
