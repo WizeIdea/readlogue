@@ -5,7 +5,7 @@ from pathlib import Path
 import streamlit as st
 
 from reader.config import load_config
-from reader.storage import connect, initialize, list_items, mark_read, set_category, set_rating
+from reader.storage import connect, initialize, list_items_page, mark_read, set_category, set_rating
 
 
 st.set_page_config(page_title="Reader", layout="wide")
@@ -15,6 +15,20 @@ config_path = Path(st.sidebar.text_input("Config file", value="config.example.ya
 config = load_config(config_path)
 initialize(config.database)
 
+# Pagination state
+PAGE_SIZE = 25
+if "page" not in st.session_state:
+    st.session_state.page = 0
+
+st.sidebar.header("Navigation")
+st.sidebar.write(f"Page size: {PAGE_SIZE}")
+st.sidebar.write(f"Items per page: {PAGE_SIZE}")
+
+with connect(config.database) as connection:
+    items, total_items = list_items_page(connection, offset=st.session_state.page * PAGE_SIZE, limit=PAGE_SIZE)
+
+total_pages = max(0, (total_items - 1) // PAGE_SIZE) if total_items > 0 else 0
+
 
 def _apply_category_change(database: Path, item_id: int, select_key: str) -> None:
     selected_category = st.session_state[select_key]
@@ -23,8 +37,16 @@ def _apply_category_change(database: Path, item_id: int, select_key: str) -> Non
         set_category(connection, item_id, category_value)
         connection.commit()
 
-with connect(config.database) as connection:
-    items = list_items(connection)
+
+def _go_prev() -> None:
+    if st.session_state.page > 0:
+        st.session_state.page -= 1
+
+
+def _go_next() -> None:
+    if st.session_state.page < total_pages:
+        st.session_state.page += 1
+
 
 category_options = ["Uncategorized", *[category for category in config.categories if category != "Uncategorized"]]
 
@@ -72,3 +94,17 @@ for item in items:
                 set_rating(connection, int(item["id"]), "dislike")
                 connection.commit()
             st.rerun()
+
+# Pagination controls
+st.divider()
+col_prev, col_info, col_next = st.columns([1, 2, 1])
+with col_prev:
+    st.button("← Previous", on_click=_go_prev, disabled=st.session_state.page <= 0, use_container_width=True)
+with col_info:
+    st.markdown(
+        f"<p style='text-align: center; margin-top: 4px;'>"
+        f"Page {st.session_state.page + 1} of {total_pages + 1} ({total_items} total articles)</p>",
+        unsafe_allow_html=True,
+    )
+with col_next:
+    st.button("Next →", on_click=_go_next, disabled=st.session_state.page >= total_pages, use_container_width=True)

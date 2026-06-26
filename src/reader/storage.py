@@ -8,6 +8,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import urlsplit
 
 
 def utc_now() -> str:
@@ -15,7 +16,9 @@ def utc_now() -> str:
 
 
 def item_fingerprint(url: str) -> str:
-    return hashlib.sha256(url.strip().encode("utf-8")).hexdigest()
+    parsed = urlsplit(url.strip())
+    clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+    return hashlib.sha256(clean_url.encode("utf-8")).hexdigest()
 
 
 def existing_item_fingerprints(connection: sqlite3.Connection, urls: list[str]) -> set[str]:
@@ -211,6 +214,38 @@ def list_items(connection: sqlite3.Connection, unread_first: bool = True) -> lis
         """
     )
     return list(cursor.fetchall())
+
+
+def list_items_page(
+    connection: sqlite3.Connection,
+    offset: int = 0,
+    limit: int = 25,
+    unread_first: bool = True,
+) -> tuple[list[sqlite3.Row], int]:
+    order_clause = (
+        "case when items.read_at is null then 0 else 1 end, coalesce(items.published_at, items.created_at) desc"
+        if unread_first
+        else "coalesce(items.published_at, items.created_at) desc"
+    )
+    base_query = """
+        from items
+        join sources on sources.id = items.source_id
+    """
+    count_row = connection.execute(
+        f"select count(*) as total {base_query}"
+    ).fetchone()
+    total = int(count_row["total"]) if count_row else 0
+
+    cursor = connection.execute(
+        f"""
+        select items.*, sources.name as source_name, sources.source_url as source_url
+        {base_query}
+        order by {order_clause}
+        limit ? offset ?
+        """,
+        (limit, offset),
+    )
+    return list(cursor.fetchall()), total
 
 
 def export_csv(connection: sqlite3.Connection, path: str | Path) -> Path:
