@@ -31,19 +31,16 @@ jobs:
           path: data-repo
           ssh-key: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
 
-      - name: Run ingestion and exports
+      - name: Run ingestion
         env:
           RAW_HTML_DIR: data-repo
         run: |
           python - <<'PY'
-          import os
-          from pathlib import Path
           from reader.ingest import ingest
-          from reader.export import export_datasets
-
+          import os
+          
           raw_dir = os.environ.get("RAW_HTML_DIR", "data-repo")
           ingest("config.example.yaml", raw_html_dir=raw_dir)
-          export_datasets("data/reader.db")
           PY
 
       - name: Commit and push raw HTML to data repo

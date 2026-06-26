@@ -1,0 +1,35 @@
+fetcher: playwright
+item_selector: a[href*="/news/"]
+link_selector: a[href*="/news/"]
+allowed_url_prefixes:
+  - https://www.anthropic.com/news/
+  - https://www.anthropic.com/news/
+excluded_url_substrings:
+  - /news/team/
+  - /news/page/
+  - /news?sort=
+title_selector: h1
+title_selectors:
+  - h3
+  - h2
+  - h1
+date_selectors:
+  - time
+  - p.detail-m
+  - div[class*="date"]
+  - span[class*="date"]
+date_formats:
+  - "%b %d, %Y"
+  - "%B %d, %Y"
+  - "%Y-%m-%d"
+category_selectors:
+  - span[class*="subject"]
+  - span.caption.bold
+  - span.text-label
+  - p.detail-m
+  - div[class*="category"]
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 25

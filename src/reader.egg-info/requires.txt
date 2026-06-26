@@ -1,5 +1,6 @@
 beautifulsoup4>=4.12
 feedparser>=6.0
+html2text>=2024.2
 playwright>=1.40
 requests>=2.31
 streamlit>=1.36

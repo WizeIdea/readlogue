@@ -1,0 +1,38 @@
+fetcher: playwright
+item_selector: a[href*="/publications/"], a[href*="/research/"]
+link_selector: a[href*="/publications/"], a[href*="/research/"]
+allowed_url_prefixes:
+  - https://www.anthropic.com/research/
+  - https://www.anthropic.com/publications/
+excluded_url_substrings:
+  - /research/team/
+  - /research/page/
+  - /publications/page/
+title_selector: h1
+title_selectors:
+  - h2
+  - h3
+  - h1
+date_selectors:
+  - time
+  - p.detail-m
+  - div[class*="date"]
+  - span[class*="date"]
+  - span[class*="published"]
+date_formats:
+  - "%b %d, %Y"
+  - "%B %d, %Y"
+  - "%Y-%m-%d"
+category_selectors:
+  - span[class*="subject"]
+  - span.caption.bold
+  - span.text-label
+  - p.detail-m
+  - div[class*="category"]
+  - div[class*="tag"]
+content_selectors:
+  - article
+  - main
+  - div[class*="publication"]
+paragraph_selector: article p, main p, p
+max_links: 25

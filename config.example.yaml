@@ -35,6 +35,24 @@ sources:
     scraper: beautifulsoup
     config: config/sources/anthropic-research.yaml
 
+  - name: anthropic-engineering
+    kind: listing
+    url: https://www.anthropic.com/engineering
+    scraper: beautifulsoup
+    config: config/sources/anthropic-engineering.yaml
+
+  - name: anthropic-news
+    kind: listing
+    url: https://www.anthropic.com/news
+    scraper: beautifulsoup
+    config: config/sources/anthropic-news.yaml
+
+  - name: anthropic-frontier-red-team
+    kind: listing
+    url: https://www.anthropic.com/research/team/frontier-red-team
+    scraper: beautifulsoup
+    config: config/sources/anthropic-frontier-red-team.yaml
+
   - name: stanford-hai-news
     kind: listing
     url: https://hai.stanford.edu/news
