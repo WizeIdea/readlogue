@@ -193,6 +193,31 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(articles), 1)
         self.assertEqual(articles[0].url, "https://example.com/post")
 
+    @patch("reader.scrapers.feedparser")
+    def test_parse_rss_feed_respects_max_entries(self, feedparser_mock: Mock) -> None:
+        def make_entry(index: int) -> Mock:
+            entry = Mock()
+            entry.get = lambda key, default=None, i=index: {
+                "link": f"https://example.com/post-{i}",
+                "title": f"Example {i}",
+                "summary": "",
+                "published": None,
+                "updated": None,
+                "author": None,
+                "tags": [],
+            }.get(key, default)
+            return entry
+
+        parsed = Mock()
+        parsed.entries = [make_entry(index) for index in range(5)]
+        feedparser_mock.parse.return_value = parsed
+
+        articles = parse_rss_feed("test-source", "https://example.com/feed.xml", max_entries=2)
+
+        self.assertEqual(len(articles), 2)
+        self.assertEqual(articles[0].url, "https://example.com/post-0")
+        self.assertEqual(articles[1].url, "https://example.com/post-1")
+
 
 if __name__ == "__main__":
     unittest.main()

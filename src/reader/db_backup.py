@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from datetime import date
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 DAILY_BACKUP_PREFIX = "reader-"
 DAILY_BACKUP_SUFFIX = ".db"
@@ -48,6 +51,7 @@ def backup_database(
     backup_day = today or date.today()
     daily_path = daily_dir / _daily_backup_name(backup_day)
     _copy_database(source, daily_path)
+    logger.info("Daily DB backup written: %s", daily_path)
     _rotate_daily_backups(daily_dir, keep=daily_retention)
 
     monthly_path: Path | None = None
@@ -55,5 +59,6 @@ def backup_database(
         monthly_path = monthly_dir / _monthly_backup_name(backup_day)
         if not monthly_path.exists():
             _copy_database(source, monthly_path)
+            logger.info("Monthly DB backup written: %s", monthly_path)
 
     return daily_path, monthly_path

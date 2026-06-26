@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.5] - 2026-06-27
+
+### Fixed
+- Data-repo auto-commit: use `db_backups/**/*.db` with `disable_globbing: true` so daily DB backups are staged and pushed (multiline pattern with empty monthly glob was skipping backup files)
+
+### Changed
+- Backup step logs written paths at INFO and lists `db_backups/daily/` and `db_backups/monthly/` after copy for GHA verification
+
+## [0.4.4] - 2026-06-27
+
+### Fixed
+- RSS ingestion capped at `max_entries` (default 25) so feeds like DeepMind (100+ items) no longer trigger a full historical backfill on every first run
+- Hugging Face tag sources now respect `max_links` from their source profile
+
+### Changed
+- RSS handler logs feed size, skip count, and pending fetch count at INFO before downloading article pages
+- GitHub Actions ingest step enables INFO logging so per-article fetch timing is visible in workflow logs
+- Empty JavaScript-rendered pages (e.g. DeepMind Antigravity stubs) fail fast without running the full extraction pipeline
+
 ## [0.4.3] - 2026-06-27
 
 ### Added

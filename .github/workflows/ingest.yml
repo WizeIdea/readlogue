@@ -39,9 +39,13 @@ jobs:
           RAW_HTML_DIR: data-repo
         run: |
           python - <<'PY'
-          from reader.ingest import ingest
+          import logging
           import os
-          
+
+          logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
+          from reader.ingest import ingest
+
           raw_dir = os.environ.get("RAW_HTML_DIR", "data-repo")
           ingest("config.example.yaml", raw_html_dir=raw_dir)
           PY
@@ -49,7 +53,11 @@ jobs:
       - name: Backup database to data repo
         run: |
           python - <<'PY'
+          import logging
           from pathlib import Path
+
+          logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
+
           from reader.db_backup import backup_database
 
           backup_database(
@@ -58,6 +66,8 @@ jobs:
               Path("data-repo/db_backups/monthly"),
           )
           PY
+          ls -la data-repo/db_backups/daily/ || true
+          ls -la data-repo/db_backups/monthly/ || true
 
       - name: Commit and push database to main repo
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -71,10 +81,8 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "Automated: ingest data repo update"
-          file_pattern: |
-            raw_html/**/*.html
-            db_backups/daily/*.db
-            db_backups/monthly/*.db
+          file_pattern: 'raw_html/**/*.html db_backups/**/*.db'
+          disable_globbing: true
           repository: data-repo
           commit_user_name: readlogue-bot
           commit_user_email: bot@readlogue.local

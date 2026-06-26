@@ -38,21 +38,39 @@ def _handle_rss_source(
     stats: IngestStats | None = None,
 ) -> list:
     """Handle RSS sources: discover from feed, then fetch full article pages."""
+    import logging
+
+    logger = logging.getLogger(__name__)
     from reader.storage import existing_item_fingerprints, item_fingerprint
 
+    max_entries = int(source_config.settings.get("max_entries", 25))
+    fetcher = str(source_config.settings.get("fetcher", "requests"))
     articles = []
-    raw_articles = parse_rss_feed(source_config.name, source_config.url)
+    raw_articles = parse_rss_feed(source_config.name, source_config.url, max_entries=max_entries)
     existing_fingerprints = existing_item_fingerprints(connection, [raw.url for raw in raw_articles])
+    pending = [
+        raw
+        for raw in raw_articles
+        if not (raw.url and item_fingerprint(raw.url) in existing_fingerprints)
+    ]
+    if stats is not None:
+        stats.skipped_existing += len(raw_articles) - len(pending)
 
-    for raw in raw_articles:
+    logger.info(
+        "RSS source '%s': %d feed entries (max_entries=%d), %d already in database, %d to fetch",
+        source_config.name,
+        len(raw_articles),
+        max_entries,
+        len(raw_articles) - len(pending),
+        len(pending),
+    )
+
+    for raw in pending:
         fingerprint = item_fingerprint(raw.url) if raw.url and raw.url.strip() else None
-        if fingerprint and fingerprint in existing_fingerprints:
-            if stats is not None:
-                stats.skipped_existing += 1
-            continue
         record = _fetch_article(
             connection, raw.url, source_config.name, source_config.url, None, None,
-            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper, stats=stats,
+            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+            fetcher=fetcher, stats=stats,
         )
         if record is None:
             continue
@@ -129,7 +147,7 @@ def _handle_api_tag_source(
 
     profile = load_listing_profile(source_config.config_path)
     tag = profile.api_tag or source_config.settings.get("tag") or source_config.name
-    discovered_articles = parse_huggingface_tag_articles(str(tag))
+    discovered_articles = parse_huggingface_tag_articles(str(tag))[: profile.max_links]
     validate_listing_articles(source_config.name, source_config.url, discovered_articles)
     existing_fingerprints = existing_item_fingerprints(connection, [la.url for la in discovered_articles])
 
@@ -220,6 +238,7 @@ def _fetch_article(
     *,
     raw_html_dir: str | Path = "data",
     source_scraper: str = "requests",
+    fetcher: str = "requests",
     stats: IngestStats | None = None,
 ) -> ArticleRecord | None:
     """Fetch an article page, validate content quality, and return an ArticleRecord
@@ -242,7 +261,7 @@ def _fetch_article(
         )
         listing_summary = listing_article.summary
     else:
-        title, summary, content, author, raw_html = extract_article(article_url, fetcher="requests")
+        title, summary, content, author, raw_html = extract_article(article_url, fetcher=fetcher)
         listing_summary = summary
 
     from reader.storage import log_ingestion_failure, resolve_raw_html_path
@@ -306,10 +325,10 @@ SOURCE_HANDLERS = {
 }
 
 
-def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
+def parse_rss_feed(source_name: str, source_url: str, *, max_entries: int = 25) -> list[ArticleRecord]:
     parsed = feedparser.parse(source_url)
     articles: list[ArticleRecord] = []
-    for entry in parsed.entries:
+    for entry in parsed.entries[:max_entries]:
         link = entry.get("link", "").strip()
         if not link:
             continue
@@ -514,6 +533,11 @@ def extract_article(
     html = _fetch_html(url, fetcher=fetcher, timeout=timeout)
     soup = BeautifulSoup(html, "html.parser")
     title = _first_text(soup, [title_selector] if title_selector else ["h1", "title"]) or url
+
+    body = soup.find("body")
+    if fetcher == "requests" and body is not None and len(body.get_text(" ", strip=True)) < 20:
+        author = _first_meta_content(soup, "author")
+        return title, "", "", author, html
 
     content = ""
     if content_selectors:

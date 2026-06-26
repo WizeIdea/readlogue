@@ -23,11 +23,15 @@ sources:
     kind: rss
     url: https://deepmind.google/blog/rss.xml
     scraper: rss
+    settings:
+      max_entries: 25
 
   - name: openai-engineering
     kind: rss
     url: https://openai.com/news/engineering/rss.xml
     scraper: rss
+    settings:
+      max_entries: 25
 
   - name: anthropic-research
     kind: listing
