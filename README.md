@@ -1,6 +1,6 @@
-# Reader
+# Readlogue
 
-Reader is a Python RSS/news reader focused on preserving article data for future ML work.
+Readlogue is a Python RSS/news reader focused on preserving article data for future ML work.
 
 ## Goals
 
