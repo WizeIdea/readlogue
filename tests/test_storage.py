@@ -21,6 +21,7 @@ class StorageTests(unittest.TestCase):
                     summary="Summary",
                     content="Full text",
                     published_at="2026-06-26T00:00:00+00:00",
+                    source_category="Technical Research",
                 )
                 self.assertTrue(upsert_article(connection, article))
                 set_category(connection, 1, "Technical Research")
@@ -29,6 +30,7 @@ class StorageTests(unittest.TestCase):
                 rows = list_items(connection)
                 self.assertEqual(len(rows), 1)
                 self.assertEqual(rows[0]["title"], "First title")
+                self.assertEqual(rows[0]["source_category"], "Technical Research")
                 self.assertEqual(rows[0]["category"], "Technical Research")
 
 

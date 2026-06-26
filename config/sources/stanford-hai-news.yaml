@@ -1,3 +1,4 @@
+item_selector: article, div, a[href*="/news/"]
 link_selector: a[href*="/news/"]
 allowed_url_prefixes:
   - https://hai.stanford.edu/news/
@@ -8,6 +9,25 @@ excluded_url_substrings:
   - /subscribe
   - /events
 title_selector: h1
+title_selectors:
+  - h3
+  - h2
+  - h1
+  - a[href*="/news/"]
+date_selectors:
+  - time[datetime]
+  - time
+  - p
+  - span
+date_formats:
+  - "%b %d, %Y"
+  - "%B %d, %Y"
+  - "%b %d %Y"
+  - "%B %d %Y"
+category_selectors:
+  - [class*="topic"]
+  - [class*="category"]
+  - span
 content_selectors:
   - article
   - main

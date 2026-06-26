@@ -8,6 +8,7 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 - Store full article text for later model training.
 - Allow read/unread and Like/Dislike state changes from a Streamlit web page.
 - Allow manual category labeling from a configurable select list.
+- Extract source-specific dates and source categories from non-RSS listing pages.
 - Export CSV and JSONL snapshots on demand for ML workflows.
 
 ## Current structure
@@ -20,10 +21,11 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually.
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
 - `config.example.yaml` now includes the manual category list used by the UI.
+- Non-RSS source profiles now also carry source-specific selectors for date and category extraction.
 
 ## Next steps
 
 1. Add real feed URLs to a local config file based on `config.example.yaml`.
-2. Finish source-specific date and category extraction for Anthropic and HAI.
-3. Add tests for manual category updates, storage persistence, deduping, and exports.
+2. Add additional source profiles using the same listing-page metadata pattern.
+3. Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.
 4. Add a richer scraper fallback for harder article pages.

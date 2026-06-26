@@ -36,6 +36,7 @@ for item in items:
             st.write(item["summary"])
         st.write(f"Status: {'Read' if item['read_at'] else 'Unread'}")
         st.write(f"Rating: {item['rating'] or 'None'}")
+        st.write(f"Source category: {item['source_category'] or 'Unknown'}")
         st.write(f"Category: {item['category'] or 'Uncategorized'}")
         category_key = f"category-{item['id']}"
         current_category = item["category"] or "Uncategorized"

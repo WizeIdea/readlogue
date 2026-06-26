@@ -1,8 +1,22 @@
 from __future__ import annotations
 
+import contextlib
+import re
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
 from reader.storage import ArticleRecord
+
+
+@dataclass(slots=True)
+class ListingArticle:
+    url: str
+    title: str
+    summary: str
+    published_at: str | None
+    source_category: str | None
+    author: str | None = None
 
 
 def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
@@ -24,9 +38,73 @@ def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
                 content=summary,
                 published_at=entry.get("published") or entry.get("updated"),
                 source_scraper="rss",
+                source_category=_extract_rss_category(entry),
                 author=entry.get("author"),
             )
         )
+    return articles
+
+
+def parse_listing_articles(
+    listing_url: str,
+    html: str | None = None,
+    fetcher: str = "requests",
+    item_selector: str = "a[href]",
+    link_selector: str = "a[href]",
+    title_selector: str | None = None,
+    title_selectors: tuple[str, ...] = (),
+    date_selectors: tuple[str, ...] = (),
+    date_formats: tuple[str, ...] = (),
+    category_selectors: tuple[str, ...] = (),
+    allowed_url_prefixes: tuple[str, ...] = (),
+    excluded_url_substrings: tuple[str, ...] = (),
+    max_links: int = 25,
+    timeout: int = 15,
+) -> list[ListingArticle]:
+    BeautifulSoup = _load_beautifulsoup()
+    if html is None:
+        html = _fetch_html(listing_url, fetcher=fetcher, timeout=timeout)
+    soup = BeautifulSoup(html, "html.parser")
+    items = soup.select(item_selector) if item_selector else soup.select(link_selector)
+    articles: list[ListingArticle] = []
+    seen: set[str] = set()
+
+    for item in items:
+        link = _extract_href(item, listing_url, link_selector)
+        if not link:
+            continue
+        if allowed_url_prefixes and not any(link.startswith(prefix) for prefix in allowed_url_prefixes):
+            continue
+        if excluded_url_substrings and any(fragment in link for fragment in excluded_url_substrings):
+            continue
+        if link in seen:
+            continue
+        seen.add(link)
+
+        title = _first_text(item, [title_selector] if title_selector else [])
+        if not title and title_selectors:
+            title = _first_text(item, list(title_selectors))
+        if not title:
+            title = _first_text(item, ["h1", "h2", "h3", "h4", "title"]) or link
+
+        published_at = _extract_date_from_item(item, date_selectors, date_formats)
+        source_category = _extract_category_from_item(item, category_selectors, published_at)
+        summary = _clean_text(item.get_text(" ", strip=True))[:500]
+
+        articles.append(
+            ListingArticle(
+                url=link,
+                title=title,
+                summary=summary,
+                published_at=published_at,
+                source_category=source_category,
+                author=_first_meta_content(item, "author"),
+            )
+        )
+
+        if len(articles) >= max_links:
+            break
+
     return articles
 
 
@@ -124,11 +202,107 @@ def validate_article_payload(source_name: str, article_url: str, title: str, con
         raise RuntimeError(f"Missing or invalid content for article '{article_url}' from source '{source_name}'")
 
 
+def validate_listing_articles(source_name: str, listing_url: str, articles: list[ListingArticle]) -> None:
+    if not articles:
+        raise RuntimeError(f"No listing articles found for source '{source_name}' at {listing_url}")
+
+
 def _first_meta_content(soup: BeautifulSoup, name: str) -> str | None:
     meta = soup.select_one(f'meta[name="{name}"]')
     if meta and meta.get("content"):
         return str(meta["content"]).strip() or None
     return None
+
+
+def _clean_text(value: str | None) -> str:
+    if not value:
+        return ""
+    return " ".join(str(value).split())
+
+
+def _extract_href(element, listing_url: str, link_selector: str) -> str | None:
+    href = element.get("href") if hasattr(element, "get") else None
+    if not href and link_selector:
+        link = element.select_one(link_selector)
+        href = link.get("href") if link else None
+    if not href:
+        return None
+    return _normalize_url(urljoin(listing_url, str(href)))
+
+
+def _extract_rss_category(entry) -> str | None:
+    for tag in entry.get("tags", []) or []:
+        term = _clean_text(tag.get("term"))
+        if term:
+            return term
+    return None
+
+
+def _extract_date_from_item(item, date_selectors: tuple[str, ...], date_formats: tuple[str, ...]) -> str | None:
+    candidates: list[str] = []
+    for selector in date_selectors:
+        for element in item.select(selector):
+            text = _clean_text(element.get_text(" ", strip=True))
+            if text:
+                candidates.append(text)
+            if element.get("datetime"):
+                candidates.append(_clean_text(element.get("datetime")))
+
+    for candidate in candidates:
+        parsed = _parse_date_text(candidate, date_formats)
+        if parsed:
+            return parsed
+    return None
+
+
+def _extract_category_from_item(item, category_selectors: tuple[str, ...], date_text: str | None) -> str | None:
+    for selector in category_selectors:
+        for element in item.select(selector):
+            text = _clean_text(element.get_text(" ", strip=True))
+            if not text:
+                continue
+            if date_text and text == date_text:
+                continue
+            if _looks_like_date(text):
+                continue
+            return text
+    return None
+
+
+def _parse_date_text(text: str, date_formats: tuple[str, ...]) -> str | None:
+    cleaned = _clean_text(text)
+    if not cleaned:
+        return None
+
+    iso_candidate = _parse_iso_date(cleaned)
+    if iso_candidate:
+        return iso_candidate
+
+    for date_format in date_formats:
+        try:
+            parsed = datetime.strptime(cleaned, date_format)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def _parse_iso_date(text: str) -> str | None:
+    candidate = text.replace("Z", "+00:00")
+    with contextlib.suppress(ValueError):
+        parsed = datetime.fromisoformat(candidate)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=timezone.utc)
+        return parsed.isoformat()
+    return None
+
+
+def _looks_like_date(text: str) -> bool:
+    return bool(re.search(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b", text)) or bool(
+        re.search(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", text)
+    )
 
 
 def _extract_content_from_selectors(soup: BeautifulSoup, selectors: tuple[str, ...]) -> str:

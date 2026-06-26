@@ -27,6 +27,7 @@ class ExportTests(unittest.TestCase):
                         summary="Summary",
                         content="Full text",
                         published_at="2026-06-26T00:00:00+00:00",
+                        source_category="AI News",
                         category="AI News",
                     ),
                 )
@@ -43,7 +44,9 @@ class ExportTests(unittest.TestCase):
             self.assertEqual(len(json_rows), 1)
             self.assertEqual(csv_rows[0]["title"], "First title")
             self.assertEqual(json_rows[0]["content"], "Full text")
+            self.assertEqual(csv_rows[0]["source_category"], "AI News")
             self.assertEqual(csv_rows[0]["category"], "AI News")
+            self.assertEqual(json_rows[0]["source_category"], "AI News")
             self.assertEqual(json_rows[0]["category"], "AI News")
 
 

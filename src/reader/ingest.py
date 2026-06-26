@@ -7,8 +7,10 @@ from reader.scrapers import (
     discover_listing_links,
     extract_article,
     parse_rss_feed,
+    parse_listing_articles,
     validate_article_payload,
     validate_listing_page,
+    validate_listing_articles,
 )
 from reader.storage import ArticleRecord, connect, initialize, upsert_article
 
@@ -26,17 +28,24 @@ def ingest(config_path: str | Path) -> int:
                 articles = parse_rss_feed(source.name, source.url)
             elif source.kind == "listing":
                 profile = load_listing_profile(source.config_path)
-                article_urls = discover_listing_links(
+                discovered_articles = parse_listing_articles(
                     source.url,
                     fetcher=profile.fetcher,
+                    item_selector=profile.item_selector,
                     link_selector=profile.link_selector,
+                    title_selector=profile.title_selector,
+                    title_selectors=profile.title_selectors,
+                    date_selectors=profile.date_selectors,
+                    date_formats=profile.date_formats,
+                    category_selectors=profile.category_selectors,
                     allowed_url_prefixes=profile.allowed_url_prefixes,
                     excluded_url_substrings=profile.excluded_url_substrings,
                     max_links=profile.max_links,
                 )
-                validate_listing_page(source.name, source.url, article_urls)
+                validate_listing_articles(source.name, source.url, discovered_articles)
                 articles = []
-                for article_url in article_urls:
+                for listing_article in discovered_articles:
+                    article_url = listing_article.url
                     title, summary, content, author = extract_article(
                         article_url,
                         fetcher=profile.fetcher,
@@ -51,10 +60,11 @@ def ingest(config_path: str | Path) -> int:
                             source_url=source.url,
                             url=article_url,
                             title=title,
-                            summary=summary,
+                            summary=listing_article.summary or summary,
                             content=content,
-                            published_at=None,
+                            published_at=listing_article.published_at,
                             source_scraper=source.scraper,
+                            source_category=listing_article.source_category,
                             category=None,
                             author=author,
                         )
@@ -72,6 +82,7 @@ def ingest(config_path: str | Path) -> int:
                         content=content,
                         published_at=None,
                         source_scraper=source.scraper,
+                        source_category=None,
                         category=None,
                         author=author,
                     )

@@ -1,4 +1,5 @@
 fetcher: selenium
+item_selector: a[href*="/research/"]
 link_selector: a[href*="/research/"]
 allowed_url_prefixes:
   - https://www.anthropic.com/research/
@@ -6,7 +7,27 @@ allowed_url_prefixes:
 excluded_url_substrings:
   - /research/team/
   - /research/page/
+  - /research?sort=
 title_selector: h1
+title_selectors:
+  - h3
+  - h2
+  - h1
+date_selectors:
+  - time
+  - p.detail-m
+  - div[class*="date"]
+  - span[class*="date"]
+date_formats:
+  - "%b %d, %Y"
+  - "%B %d, %Y"
+  - "%Y-%m-%d"
+category_selectors:
+  - span[class*="subject"]
+  - span.caption.bold
+  - span.text-label
+  - p.detail-m
+  - div[class*="category"]
 content_selectors:
   - article
   - main
