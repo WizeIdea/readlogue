@@ -20,10 +20,70 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 - `src/reader/export.py` builds CSV and JSONL datasets.
 - `streamlit_app.py` is the UI entrypoint.
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually.
+- The scheduled GitHub Action runs daily and only fetches article pages that are not already in SQLite.
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
 - `config.example.yaml` now includes the manual category list used by the UI.
 - Non-RSS source profiles now also carry source-specific selectors for date and category extraction.
 - Hugging Face is handled as a tag-aware source because the public RSS feed does not expose the category split we need.
+
+## Adding a new news source
+
+Use the same pattern for every future source so ingestion stays config-driven.
+
+1. Add a source entry to your local config based on `config.example.yaml`.
+2. Choose the source kind:
+	- `rss` for a plain RSS/Atom feed.
+	- `listing` for a web page that exposes article cards or article links.
+	- `api_tag` for a tag-filtered endpoint like Hugging Face's blog tags.
+3. Add a source profile file in `config/sources/` when the source is not a plain RSS feed.
+4. Run ingestion once and confirm the page extracts a stable title, URL, and body text.
+5. Add or update tests for the new source shape before treating it as complete.
+
+### Source config fields
+
+Every source entry should define these fields:
+
+- `name`: unique source name used in the database.
+- `kind`: `rss`, `listing`, or `api_tag`.
+- `url`: feed URL, listing URL, or source landing page.
+- `scraper`: fetch method used by the ingestion path.
+- `config`: optional path to a source profile file.
+- `enabled`: optional flag for turning a source on or off.
+
+For non-RSS sources, the profile file may also define:
+
+- `fetcher`: `requests` or `selenium`.
+- `item_selector` and `link_selector`: how article entries are discovered.
+- `title_selector` / `title_selectors`: how the title is extracted.
+- `date_selectors` and `date_formats`: how published dates are parsed.
+- `category_selectors`: how source-specific categories are extracted.
+- `content_selectors` and `paragraph_selector`: how article body text is extracted.
+- `api_tag`: the tag name for tag-filtered sources such as Hugging Face.
+- `allowed_url_prefixes` / `excluded_url_substrings`: filters that keep discovery focused.
+
+### Database fields used by each ingested item
+
+The database stores the source itself in `sources` and the article data in `items`.
+
+Required or strongly recommended item fields for ingestion:
+
+- `source_id`: internal link back to the source row.
+- `fingerprint`: unique item key derived from the article URL.
+- `url`: canonical article URL.
+- `title`: article title.
+- `content`: full article body text.
+- `summary`: short preview text.
+- `published_at`: parsed publication timestamp when available.
+
+Useful metadata fields that should be populated when the source exposes them:
+
+- `author`: article author or authors.
+- `source_category`: category or tag reported by the source itself.
+- `category`: manual label chosen in the UI.
+- `read_at`: read/unread state stored by the UI.
+- `rating`: Like/Dislike state stored by the UI.
+
+The ingestion pipeline must never overwrite the manual `category`, `read_at`, or `rating` fields when new items are discovered later.
 
 ## Next steps
 
@@ -31,3 +91,6 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 2. Add additional source profiles using the same listing-page metadata pattern.
 3. Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.
 4. Add a richer scraper fallback for harder article pages.
+5. Decide whether ingestion should run in a hosted environment, a local cron job, or only GitHub Actions.
+6. Add an operator checklist for initial backfill, validation, and recovery from broken pages.
+7. Add more robust monitoring for failed source fetches, parse failures, and empty ingests.

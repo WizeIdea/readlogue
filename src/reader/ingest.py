@@ -13,7 +13,7 @@ from reader.scrapers import (
     validate_listing_page,
     validate_listing_articles,
 )
-from reader.storage import ArticleRecord, connect, initialize, upsert_article
+from reader.storage import ArticleRecord, connect, existing_item_fingerprints, initialize, item_fingerprint, upsert_article
 
 
 def ingest(config_path: str | Path) -> int:
@@ -32,9 +32,15 @@ def ingest(config_path: str | Path) -> int:
                 tag = profile.api_tag or source.settings.get("tag") or source.name
                 discovered_articles = parse_huggingface_tag_articles(str(tag))
                 validate_listing_articles(source.name, source.url, discovered_articles)
+                existing_fingerprints = existing_item_fingerprints(
+                    connection,
+                    [listing_article.url for listing_article in discovered_articles],
+                )
                 articles = []
                 for listing_article in discovered_articles:
                     article_url = listing_article.url
+                    if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
+                        continue
                     title, summary, content, author = extract_article(
                         article_url,
                         fetcher=profile.fetcher,
@@ -75,9 +81,15 @@ def ingest(config_path: str | Path) -> int:
                     max_links=profile.max_links,
                 )
                 validate_listing_articles(source.name, source.url, discovered_articles)
+                existing_fingerprints = existing_item_fingerprints(
+                    connection,
+                    [listing_article.url for listing_article in discovered_articles],
+                )
                 articles = []
                 for listing_article in discovered_articles:
                     article_url = listing_article.url
+                    if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
+                        continue
                     title, summary, content, author = extract_article(
                         article_url,
                         fetcher=profile.fetcher,

@@ -4,10 +4,35 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from reader.storage import ArticleRecord, connect, initialize, list_items, set_category, upsert_article
+from reader.storage import ArticleRecord, connect, existing_item_fingerprints, initialize, list_items, set_category, upsert_article
 
 
 class StorageTests(unittest.TestCase):
+    def test_existing_item_fingerprints_reports_known_urls(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                article = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url="https://example.com/post-1",
+                    title="First title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                    source_category="Technical Research",
+                )
+                self.assertTrue(upsert_article(connection, article))
+                connection.commit()
+
+                fingerprints = existing_item_fingerprints(
+                    connection,
+                    ["https://example.com/post-1", "https://example.com/post-2"],
+                )
+
+                self.assertEqual(len(fingerprints), 1)
+
     def test_upsert_preserves_single_item(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             database = Path(temp_dir) / "reader.db"

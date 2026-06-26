@@ -18,6 +18,19 @@ def item_fingerprint(url: str) -> str:
     return hashlib.sha256(url.strip().encode("utf-8")).hexdigest()
 
 
+def existing_item_fingerprints(connection: sqlite3.Connection, urls: list[str]) -> set[str]:
+    fingerprints = [item_fingerprint(url) for url in urls if url.strip()]
+    if not fingerprints:
+        return set()
+
+    placeholders = ", ".join("?" for _ in fingerprints)
+    rows = connection.execute(
+        f"select fingerprint from items where fingerprint in ({placeholders})",
+        fingerprints,
+    ).fetchall()
+    return {str(row["fingerprint"]) for row in rows}
+
+
 @dataclass(frozen=True)
 class ArticleRecord:
     source_name: str
