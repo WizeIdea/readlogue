@@ -93,7 +93,7 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 - `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival. RSS sources now fetch the full article page for each entry, not just the feed summary. Uses a source-kind registry (`SOURCE_HANDLERS`) to dispatch to the appropriate handler without an `if/elif` chain.
 - CSV and JSONL export functions live in `src/reader/storage.py` (`export_csv`, `export_jsonl`).
 - `src/reader/db_backup.py` rotates daily (7) and monthly SQLite backups into the data repository after ingest.
-- `streamlit_app.py` is the UI entrypoint; displays a warning banner when the last ingestion skipped articles.
+- `streamlit_app.py` is the UI entrypoint; shows a red error banner for ingestion failures with an **Ignore** action to append URLs to the config blacklist.
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually using a dual-repo checkout pattern.
 - The live SQLite index `data/reader.db` is committed to the **main** repository after each ingest.
 - Raw HTML is saved to `raw_html/YYYY-MM-DD/<uuid>.html` in the **data** repository (`WizeIdea/readlogue_data_2026`) via `stefanzweifel/git-auto-commit-action`.
@@ -136,6 +136,16 @@ Use this when you are doing the first full import or recovering from a broken so
 6. Re-run ingestion after the fix and confirm only new URLs are fetched.
 7. If a source produces bad or duplicated rows, remove or repair those rows in SQLite before the next scheduled run.
 8. Re-export the dataset after recovery so CSV and JSONL stay aligned with the current database.
+
+### Ingestion failures and ignore list
+
+When validation rejects an article (empty body, HTML residue, low lexical diversity, etc.), the pipeline records one row per URL in `ingestion_log` with an incrementing `failure_count`. The Streamlit UI shows these from the **first** failure with the error message and attempt count.
+
+- **`ignored_url_substrings` / `ignored_urls`** — skip matching URLs before fetch (no HTTP request). Use for repeat offenders such as JavaScript shells that will never pass validation.
+- **`auto_skip_failure_threshold`** (default `3`) — after this many failures for a URL that is not yet in `items`, ingest stops re-fetching it (`skipped_known_failure` in the summary).
+- **Ignore button** in the UI appends the URL to your config and clears the log row locally. With `READLOGUE_GITHUB_TOKEN` set, `git_sync` can commit the config change (Phase 2).
+
+Successful ingest removes the matching `ingestion_log` row. A **validation whitelist** (bypass checks for known-good URLs such as `cyber-toolkits-update`) is planned — see Next steps item 11.
 
 ## Adding a new news source
 
@@ -211,3 +221,4 @@ The ingestion pipeline must never overwrite the manual `category`, `read_at`, or
 8. Set up the data repo deploy key (SSH key) to activate the dual-repo raw HTML archival workflow.
 9. Consider adding a `raw_html_path` link in the Streamlit UI for quick access to the original HTML.
 10. Document the source-kind registry pattern (`SOURCE_HANDLERS`) in CONTRIBUTING.md for future contributors.
+11. Add a validation **whitelist** for URLs that should bypass lexical-diversity or similar checks (e.g. `cyber-toolkits-update` on Anthropic Research).

@@ -4,6 +4,7 @@ import contextlib
 import feedparser
 import re
 import requests
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,12 +31,82 @@ HF_API_URL = "https://huggingface.co/api/blog"
 SOURCE_HANDLERS: dict[str, object] = {}
 
 
+def build_url_ignore_checker(
+    *,
+    ignored_urls: tuple[str, ...] = (),
+    ignored_url_substrings: tuple[str, ...] = (),
+) -> Callable[[str], bool]:
+    from reader.storage import item_fingerprint
+
+    fingerprints = {
+        item_fingerprint(_normalize_url(url))
+        for url in ignored_urls
+        if url and url.strip()
+    }
+    substrings = tuple(fragment for fragment in ignored_url_substrings if fragment)
+
+    def url_is_ignored(url: str) -> bool:
+        if not url or not url.strip():
+            return False
+        normalized = _normalize_url(url)
+        if item_fingerprint(normalized) in fingerprints:
+            return True
+        return any(fragment in normalized for fragment in substrings)
+
+    return url_is_ignored
+
+
+def _skip_ignored_url(
+    article_url: str,
+    source_name: str,
+    *,
+    url_is_ignored: Callable[[str], bool] | None,
+    stats: IngestStats | None,
+) -> bool:
+    if url_is_ignored is None or not url_is_ignored(article_url):
+        return False
+
+    import logging
+
+    logger = logging.getLogger(__name__)
+    if stats is not None:
+        stats.skipped_ignored += 1
+    logger.info("Skipping ignored URL from '%s': %s", source_name, article_url)
+    return True
+
+
+def _skip_known_failure(
+    article_url: str,
+    source_name: str,
+    *,
+    known_failed_fingerprints: set[str] | None,
+    stats: IngestStats | None,
+) -> bool:
+    if not known_failed_fingerprints:
+        return False
+
+    from reader.storage import item_fingerprint
+
+    if item_fingerprint(article_url) not in known_failed_fingerprints:
+        return False
+
+    import logging
+
+    logger = logging.getLogger(__name__)
+    if stats is not None:
+        stats.skipped_known_failure += 1
+    logger.info("Skipping known failed URL from '%s': %s", source_name, article_url)
+    return True
+
+
 def _handle_rss_source(
     source_config,
     connection,
     raw_html_dir: str | Path = "data",
     *,
     stats: IngestStats | None = None,
+    url_is_ignored: Callable[[str], bool] | None = None,
+    known_failed_fingerprints: set[str] | None = None,
 ) -> list:
     """Handle RSS sources: discover from feed, then fetch full article pages."""
     import logging
@@ -66,6 +137,20 @@ def _handle_rss_source(
     )
 
     for raw in pending:
+        if _skip_ignored_url(
+            raw.url,
+            source_config.name,
+            url_is_ignored=url_is_ignored,
+            stats=stats,
+        ):
+            continue
+        if _skip_known_failure(
+            raw.url,
+            source_config.name,
+            known_failed_fingerprints=known_failed_fingerprints,
+            stats=stats,
+        ):
+            continue
         fingerprint = item_fingerprint(raw.url) if raw.url and raw.url.strip() else None
         record = _fetch_article(
             connection, raw.url, source_config.name, source_config.url, None, None,
@@ -91,6 +176,8 @@ def _handle_listing_source(
     raw_html_dir: str | Path = "data",
     *,
     stats: IngestStats | None = None,
+    url_is_ignored: Callable[[str], bool] | None = None,
+    known_failed_fingerprints: set[str] | None = None,
 ) -> list:
     """Handle listing sources: discover links, then fetch full article pages."""
     from reader.config import load_listing_profile
@@ -122,6 +209,20 @@ def _handle_listing_source(
             if stats is not None:
                 stats.skipped_existing += 1
             continue
+        if _skip_ignored_url(
+            article_url,
+            source_config.name,
+            url_is_ignored=url_is_ignored,
+            stats=stats,
+        ):
+            continue
+        if _skip_known_failure(
+            article_url,
+            source_config.name,
+            known_failed_fingerprints=known_failed_fingerprints,
+            stats=stats,
+        ):
+            continue
         record = _fetch_article(
             connection, article_url, source_config.name, source_config.url, listing_article, profile,
             raw_html_dir=raw_html_dir, source_scraper=source_config.scraper, stats=stats,
@@ -140,6 +241,8 @@ def _handle_api_tag_source(
     raw_html_dir: str | Path = "data",
     *,
     stats: IngestStats | None = None,
+    url_is_ignored: Callable[[str], bool] | None = None,
+    known_failed_fingerprints: set[str] | None = None,
 ) -> list:
     """Handle API tag sources (e.g., HuggingFace blog tags)."""
     from reader.config import load_listing_profile
@@ -159,6 +262,20 @@ def _handle_api_tag_source(
             if stats is not None:
                 stats.skipped_existing += 1
             continue
+        if _skip_ignored_url(
+            article_url,
+            source_config.name,
+            url_is_ignored=url_is_ignored,
+            stats=stats,
+        ):
+            continue
+        if _skip_known_failure(
+            article_url,
+            source_config.name,
+            known_failed_fingerprints=known_failed_fingerprints,
+            stats=stats,
+        ):
+            continue
         record = _fetch_article(
             connection, article_url, source_config.name, source_config.url, listing_article, profile,
             raw_html_dir=raw_html_dir, source_scraper=source_config.scraper, stats=stats,
@@ -177,6 +294,8 @@ def _handle_direct_source(
     raw_html_dir: str | Path = "data",
     *,
     stats: IngestStats | None = None,
+    url_is_ignored: Callable[[str], bool] | None = None,
+    known_failed_fingerprints: set[str] | None = None,
 ) -> list:
     """Handle direct URL sources: fetch a single article page."""
     import logging
@@ -189,6 +308,22 @@ def _handle_direct_source(
         if item_fingerprint(source_config.url) in existing:
             stats.skipped_existing += 1
             return []
+
+    if _skip_ignored_url(
+        source_config.url,
+        source_config.name,
+        url_is_ignored=url_is_ignored,
+        stats=stats,
+    ):
+        return []
+
+    if _skip_known_failure(
+        source_config.url,
+        source_config.name,
+        known_failed_fingerprints=known_failed_fingerprints,
+        stats=stats,
+    ):
+        return []
 
     articles = []
     if stats is not None:
@@ -270,7 +405,7 @@ def _fetch_article(
     quality = validate_content(title, content, article_url, source_name)
     elapsed = time.monotonic() - fetch_started
     logger.info(
-        "Fetched %s in %.1fs (%d words, valid=%s)",
+        "Fetched %s in %.1fs (%d words, accepted=%s)",
         article_url,
         elapsed,
         quality.word_count,

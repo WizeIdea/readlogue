@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.7] - 2026-06-27
+
+### Added
+- `ingestion_log` upsert: one row per article URL with `failure_count` and `last_seen_at` (schema v3 migration)
+- Auto-skip re-fetch when `failure_count >= auto_skip_failure_threshold` (default 3); `skipped_known_failure` in ingestion summary
+- Streamlit red error banner for ingestion failures (from first failure) with per-URL **Ignore** button that appends to config
+- `append_ignored_url()` config helper and `git_sync.commit_config_files()` stub for optional config push when `READLOGUE_GITHUB_TOKEN` is set
+
+### Changed
+- Successful ingest clears matching `ingestion_log` rows
+
+## [0.4.6] - 2026-06-27
+
+### Added
+- Configurable URL ignore list: `ignored_urls` and `ignored_url_substrings` in config (plus optional per-source overrides in `settings`) skip known-bad articles before fetch
+- `skipped_ignored` counter in ingestion summary
+
+### Changed
+- Per-article fetch log uses `accepted=True/False` instead of `valid=True/False` for clarity
+
 ## [0.4.5] - 2026-06-27
 
 ### Fixed

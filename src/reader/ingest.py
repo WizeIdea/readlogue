@@ -4,8 +4,8 @@ import logging
 from pathlib import Path
 
 from reader.config import load_config
-from reader.scrapers import SOURCE_HANDLERS
-from reader.storage import IngestStats, connect, initialize, upsert_article
+from reader.scrapers import SOURCE_HANDLERS, build_url_ignore_checker
+from reader.storage import IngestStats, connect, initialize, known_failed_fingerprints, upsert_article
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +15,10 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
     initialize(config.database)
     stats = IngestStats()
     with connect(config.database) as connection:
+        failed_fingerprints = known_failed_fingerprints(
+            connection,
+            min_failures=config.auto_skip_failure_threshold,
+        )
         for source in config.sources:
             if not source.enabled:
                 continue
@@ -24,7 +28,20 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
                 logger.warning("Unknown source kind '%s' for source '%s', skipping", source.kind, source.name)
                 continue
             try:
-                articles = handler(source, connection, raw_html_dir=raw_html_dir, stats=stats)
+                url_is_ignored = build_url_ignore_checker(
+                    ignored_urls=config.ignored_urls
+                    + tuple(str(value) for value in source.settings.get("ignored_urls", [])),
+                    ignored_url_substrings=config.ignored_url_substrings
+                    + tuple(str(value) for value in source.settings.get("ignored_url_substrings", [])),
+                )
+                articles = handler(
+                    source,
+                    connection,
+                    raw_html_dir=raw_html_dir,
+                    stats=stats,
+                    url_is_ignored=url_is_ignored,
+                    known_failed_fingerprints=failed_fingerprints,
+                )
             except Exception as exc:
                 logger.error("Failed to ingest source '%s': %s", source.name, exc)
                 continue
@@ -36,9 +53,11 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
         connection.commit()
 
     logger.info(
-        "Ingestion summary: skipped_existing=%d fetched=%d validation_failed=%d "
-        "html_written=%d html_reused=%d new_db_rows=%d",
+        "Ingestion summary: skipped_existing=%d skipped_ignored=%d skipped_known_failure=%d "
+        "fetched=%d validation_failed=%d html_written=%d html_reused=%d new_db_rows=%d",
         stats.skipped_existing,
+        stats.skipped_ignored,
+        stats.skipped_known_failure,
         stats.fetched,
         stats.validation_failed,
         stats.html_written,

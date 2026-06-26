@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 from reader.scrapers import (
     _extract_content_from_selectors,
     _strip_embed_markup,
+    build_url_ignore_checker,
     discover_listing_links_from_html,
     parse_huggingface_tag_articles,
     parse_listing_articles,
@@ -217,6 +218,29 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(articles), 2)
         self.assertEqual(articles[0].url, "https://example.com/post-0")
         self.assertEqual(articles[1].url, "https://example.com/post-1")
+
+
+class UrlIgnoreCheckerTests(unittest.TestCase):
+    def test_exact_url_match_ignores_normalized_url(self) -> None:
+        checker = build_url_ignore_checker(
+            ignored_urls=("https://deepmind.google/blog/introducing-google-antigravity/",),
+        )
+        self.assertTrue(
+            checker("https://deepmind.google/blog/introducing-google-antigravity")
+        )
+
+    def test_substring_match(self) -> None:
+        checker = build_url_ignore_checker(
+            ignored_url_substrings=("introducing-google-antigravity",),
+        )
+        self.assertTrue(
+            checker("https://deepmind.google/blog/introducing-google-antigravity-2-0/")
+        )
+        self.assertFalse(checker("https://deepmind.google/blog/other-post"))
+
+    def test_non_ignored_url(self) -> None:
+        checker = build_url_ignore_checker(ignored_url_substrings=("introducing-google-antigravity",))
+        self.assertFalse(checker("https://example.com/article"))
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def utc_now() -> str:
@@ -28,6 +28,8 @@ def item_fingerprint(url: str) -> str:
 @dataclass
 class IngestStats:
     skipped_existing: int = 0
+    skipped_ignored: int = 0
+    skipped_known_failure: int = 0
     fetched: int = 0
     validation_failed: int = 0
     html_written: int = 0
@@ -156,15 +158,19 @@ def initialize(database: str | Path) -> None:
                 id integer primary key autoincrement,
                 source_name text not null,
                 article_url text not null,
+                article_fingerprint text not null unique,
                 severity text not null default 'warning',
                 message text not null,
-                created_at text not null default current_timestamp
+                failure_count integer not null default 1,
+                created_at text not null default current_timestamp,
+                last_seen_at text not null default current_timestamp
             );
 
             create index if not exists idx_ingestion_log_created on ingestion_log(created_at);
             """
         )
         _run_migrations(connection)
+        _ensure_ingestion_log_indexes(connection)
         connection.commit()
 
 
@@ -185,10 +191,92 @@ def _run_migrations(connection: sqlite3.Connection) -> None:
             _ensure_column(connection, table_name, column_name, column_def)
 
     if current_version < SCHEMA_VERSION:
+        if current_version < 3:
+            _migrate_ingestion_log_v3(connection)
         connection.execute(
             "insert into schema_version(version) values (?)",
             (SCHEMA_VERSION,),
         )
+
+
+def _ensure_ingestion_log_indexes(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("pragma table_info(ingestion_log)")}
+    if "article_fingerprint" in columns:
+        connection.execute(
+            "create index if not exists idx_ingestion_log_fingerprint on ingestion_log(article_fingerprint)"
+        )
+
+
+def _migrate_ingestion_log_v3(connection: sqlite3.Connection) -> None:
+    columns = {row[1] for row in connection.execute("pragma table_info(ingestion_log)")}
+    if "article_fingerprint" in columns:
+        return
+
+    connection.execute(
+        """
+        create table ingestion_log_v3 (
+            id integer primary key autoincrement,
+            source_name text not null,
+            article_url text not null,
+            article_fingerprint text not null unique,
+            severity text not null default 'warning',
+            message text not null,
+            failure_count integer not null default 1,
+            created_at text not null,
+            last_seen_at text not null
+        )
+        """
+    )
+    legacy_rows = connection.execute(
+        """
+        select source_name, article_url, severity, message, created_at
+        from ingestion_log
+        order by created_at asc
+        """
+    ).fetchall()
+    grouped: dict[str, dict[str, object]] = {}
+    for row in legacy_rows:
+        article_url = str(row["article_url"])
+        fingerprint = item_fingerprint(article_url)
+        bucket = grouped.get(fingerprint)
+        if bucket is None:
+            grouped[fingerprint] = {
+                "source_name": row["source_name"],
+                "article_url": article_url,
+                "severity": row["severity"],
+                "message": row["message"],
+                "failure_count": 1,
+                "created_at": row["created_at"],
+                "last_seen_at": row["created_at"],
+            }
+            continue
+        bucket["failure_count"] = int(bucket["failure_count"]) + 1
+        bucket["message"] = row["message"]
+        bucket["last_seen_at"] = row["created_at"]
+
+    for entry in grouped.values():
+        connection.execute(
+            """
+            insert into ingestion_log_v3(
+                source_name, article_url, article_fingerprint, severity, message,
+                failure_count, created_at, last_seen_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                entry["source_name"],
+                entry["article_url"],
+                item_fingerprint(str(entry["article_url"])),
+                entry["severity"],
+                entry["message"],
+                entry["failure_count"],
+                entry["created_at"],
+                entry["last_seen_at"],
+            ),
+        )
+
+    connection.execute("drop table ingestion_log")
+    connection.execute("alter table ingestion_log_v3 rename to ingestion_log")
+    _ensure_ingestion_log_indexes(connection)
 
 
 def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name: str, column_definition: str) -> None:
@@ -239,6 +327,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
                 utc_now(),
             ),
         )
+        clear_ingestion_failure(connection, article.url)
         return True
 
     connection.execute(
@@ -268,6 +357,8 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             fingerprint,
         ),
     )
+    if article.content.strip():
+        clear_ingestion_failure(connection, article.url)
     return False
 
 
@@ -363,6 +454,13 @@ def export_jsonl(connection: sqlite3.Connection, path: str | Path) -> Path:
     return output_path
 
 
+def clear_ingestion_failure(connection: sqlite3.Connection, article_url: str) -> None:
+    connection.execute(
+        "delete from ingestion_log where article_fingerprint = ?",
+        (item_fingerprint(article_url),),
+    )
+
+
 def log_ingestion_failure(
     connection: sqlite3.Connection,
     source_name: str,
@@ -370,13 +468,60 @@ def log_ingestion_failure(
     message: str,
     severity: str = "warning",
 ) -> None:
+    now = utc_now()
+    fingerprint = item_fingerprint(article_url)
     connection.execute(
         """
-        insert into ingestion_log(source_name, article_url, severity, message, created_at)
-        values (?, ?, ?, ?, ?)
+        insert into ingestion_log(
+            source_name, article_url, article_fingerprint, severity, message,
+            failure_count, created_at, last_seen_at
+        ) values (?, ?, ?, ?, ?, 1, ?, ?)
+        on conflict(article_fingerprint) do update set
+            source_name = excluded.source_name,
+            article_url = excluded.article_url,
+            severity = excluded.severity,
+            message = excluded.message,
+            failure_count = failure_count + 1,
+            last_seen_at = excluded.last_seen_at
         """,
-        (source_name, article_url, severity, message, utc_now()),
+        (source_name, article_url, fingerprint, severity, message, now, now),
     )
+
+
+def known_failed_fingerprints(
+    connection: sqlite3.Connection,
+    *,
+    min_failures: int = 3,
+) -> set[str]:
+    rows = connection.execute(
+        """
+        select article_fingerprint
+        from ingestion_log
+        where failure_count >= ?
+          and article_fingerprint not in (select fingerprint from items)
+        """,
+        (min_failures,),
+    ).fetchall()
+    return {str(row["article_fingerprint"]) for row in rows}
+
+
+def ingestion_failures(
+    connection: sqlite3.Connection,
+    *,
+    min_failures: int = 1,
+    limit: int = 50,
+) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        select source_name, article_url, severity, message, failure_count, created_at, last_seen_at
+        from ingestion_log
+        where failure_count >= ?
+          and article_fingerprint not in (select fingerprint from items)
+        order by last_seen_at desc
+        limit ?
+        """,
+        (min_failures, limit),
+    ).fetchall()
 
 
 def recent_ingestion_issues(
@@ -385,9 +530,9 @@ def recent_ingestion_issues(
 ) -> list[sqlite3.Row]:
     return connection.execute(
         """
-        select source_name, article_url, severity, message, created_at
+        select source_name, article_url, severity, message, failure_count, created_at, last_seen_at
         from ingestion_log
-        order by created_at desc
+        order by last_seen_at desc
         limit ?
         """,
         (limit,),

@@ -41,6 +41,9 @@ class AppConfig:
     database: Path
     sources: list[SourceConfig]
     categories: list[str]
+    ignored_urls: tuple[str, ...] = ()
+    ignored_url_substrings: tuple[str, ...] = ()
+    auto_skip_failure_threshold: int = 3
 
 
 DEFAULT_CATEGORIES = [
@@ -70,7 +73,14 @@ def load_config(path: str | Path) -> AppConfig:
         )
         for feed in source_entries
     ]
-    return AppConfig(database=Path(raw.get("database", "data/reader.db")), sources=sources, categories=categories)
+    return AppConfig(
+        database=Path(raw.get("database", "data/reader.db")),
+        sources=sources,
+        categories=categories,
+        ignored_urls=tuple(str(value) for value in raw.get("ignored_urls", [])),
+        ignored_url_substrings=tuple(str(value) for value in raw.get("ignored_url_substrings", [])),
+        auto_skip_failure_threshold=int(raw.get("auto_skip_failure_threshold", 3)),
+    )
 
 
 def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:

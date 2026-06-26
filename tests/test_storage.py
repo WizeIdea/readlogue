@@ -8,13 +8,17 @@ from reader.storage import (
     ArticleRecord,
     IngestStats,
     SCHEMA_VERSION,
+    clear_ingestion_failure,
     connect,
     existing_item_fingerprints,
     existing_raw_html_path,
     initialize,
+    ingestion_failures,
     item_fingerprint,
+    known_failed_fingerprints,
     list_items,
     list_items_page,
+    log_ingestion_failure,
     resolve_raw_html_path,
     save_raw_html,
     set_category,
@@ -241,6 +245,125 @@ class StorageTests(unittest.TestCase):
                     (item_fingerprint("https://example.com/post-1"),),
                 ).fetchone()
                 self.assertEqual(row["raw_html_path"], "raw_html/2026-06-26/original.html")
+
+
+class IngestionLogTests(unittest.TestCase):
+    def test_log_ingestion_failure_upserts_and_increments(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                log_ingestion_failure(connection, "source-a", "https://example.com/bad", "too short")
+                log_ingestion_failure(connection, "source-a", "https://example.com/bad", "too short again")
+                connection.commit()
+                row = connection.execute(
+                    "select failure_count, message from ingestion_log where article_fingerprint = ?",
+                    (item_fingerprint("https://example.com/bad"),),
+                ).fetchone()
+                self.assertEqual(int(row["failure_count"]), 2)
+                self.assertEqual(row["message"], "too short again")
+
+    def test_known_failed_fingerprints_respects_threshold(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                url = "https://example.com/repeat-offender"
+                for _ in range(2):
+                    log_ingestion_failure(connection, "source-a", url, "failed")
+                connection.commit()
+                self.assertEqual(len(known_failed_fingerprints(connection, min_failures=3)), 0)
+                log_ingestion_failure(connection, "source-a", url, "failed")
+                connection.commit()
+                failed = known_failed_fingerprints(connection, min_failures=3)
+                self.assertEqual(failed, {item_fingerprint(url)})
+
+    def test_ingestion_failures_excludes_items_in_database(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                url = "https://example.com/fixed-later"
+                log_ingestion_failure(connection, "source-a", url, "failed")
+                article = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url=url,
+                    title="Title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                )
+                upsert_article(connection, article)
+                connection.commit()
+                self.assertEqual(len(ingestion_failures(connection)), 0)
+
+    def test_clear_ingestion_failure_on_successful_upsert(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                url = "https://example.com/recovered"
+                log_ingestion_failure(connection, "source-a", url, "failed")
+                article = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url=url,
+                    title="Title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                )
+                upsert_article(connection, article)
+                connection.commit()
+                count = connection.execute("select count(*) as cnt from ingestion_log").fetchone()
+                self.assertEqual(int(count["cnt"]), 0)
+
+    def test_v2_ingestion_log_migrates_to_unique_fingerprints(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                connection.execute(
+                    "delete from schema_version where version >= 3"
+                )
+                connection.execute("drop table if exists ingestion_log")
+                connection.execute(
+                    """
+                    create table ingestion_log (
+                        id integer primary key autoincrement,
+                        source_name text not null,
+                        article_url text not null,
+                        severity text not null default 'warning',
+                        message text not null,
+                        created_at text not null default current_timestamp
+                    )
+                    """
+                )
+                connection.executemany(
+                    """
+                    insert into ingestion_log(source_name, article_url, message, created_at)
+                    values (?, ?, ?, ?)
+                    """,
+                    [
+                        ("source-a", "https://example.com/dup", "first", "2026-06-01T00:00:00+00:00"),
+                        ("source-a", "https://example.com/dup", "second", "2026-06-02T00:00:00+00:00"),
+                    ],
+                )
+                connection.commit()
+            initialize(database)
+            with connect(database) as connection:
+                row = connection.execute(
+                    """
+                    select failure_count, message, article_fingerprint
+                    from ingestion_log
+                    where article_url = 'https://example.com/dup'
+                    """
+                ).fetchone()
+                self.assertIsNotNone(row)
+                self.assertEqual(int(row["failure_count"]), 2)
+                self.assertEqual(row["message"], "second")
+                self.assertEqual(row["article_fingerprint"], item_fingerprint("https://example.com/dup"))
 
 
 class PaginationTests(unittest.TestCase):

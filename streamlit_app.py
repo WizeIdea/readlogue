@@ -1,12 +1,23 @@
 from __future__ import annotations
 
-from collections import Counter
 from pathlib import Path
 
 import streamlit as st
 
 from reader.config import load_config
-from reader.storage import connect, initialize, list_items_page, mark_read, recent_ingestion_issues, set_category, set_rating
+from reader.config_edit import append_ignored_url
+from reader.git_sync import commit_config_files
+from reader.scrapers import build_url_ignore_checker
+from reader.storage import (
+    clear_ingestion_failure,
+    connect,
+    initialize,
+    ingestion_failures,
+    list_items_page,
+    mark_read,
+    set_category,
+    set_rating,
+)
 
 
 st.set_page_config(page_title="Reader", layout="wide")
@@ -26,30 +37,46 @@ st.sidebar.write(f"Page size: {PAGE_SIZE}")
 st.sidebar.write(f"Items per page: {PAGE_SIZE}")
 
 with connect(config.database) as connection:
-    # Show recent ingestion warnings at the top of the page
-    issues = recent_ingestion_issues(connection, limit=50)
-    if issues:
-        source_counter: Counter[str] = Counter()
-        reason_counter: Counter[str] = Counter()
-        issue_details: dict[str, set[str]] = {}
-        for issue in issues:
-            source = issue["source_name"]
-            msg = issue["message"]
-            source_counter[source] += 1
-            reason_counter[msg] += 1
-            if source not in issue_details:
-                issue_details[source] = set()
-            issue_details[source].add(msg)
-
-        lines: list[str] = []
-        for source, count in source_counter.most_common():
-            reasons = "; ".join(sorted(issue_details[source]))
-            lines.append(f"  • **{source}**: {count} article(s) skipped — {reasons}")
-
-        st.warning(
-            "⚠️ **Content quality issues detected in the last ingestion**\n\n"
-            + "\n".join(lines)
-        )
+    url_is_ignored = build_url_ignore_checker(
+        ignored_urls=config.ignored_urls,
+        ignored_url_substrings=config.ignored_url_substrings,
+    )
+    failures = [
+        issue
+        for issue in ingestion_failures(connection, min_failures=1)
+        if not url_is_ignored(str(issue["article_url"]))
+    ]
+    if failures:
+        st.error("**Ingestion failures** — these URLs failed validation and were not saved.")
+        for index, issue in enumerate(failures):
+            count = int(issue["failure_count"])
+            attempts = "attempt" if count == 1 else "attempts"
+            st.markdown(
+                f"**{issue['source_name']}** · [{issue['article_url']}]({issue['article_url']})  \n"
+                f"{count} {attempts} — {issue['message']}"
+            )
+            if count >= config.auto_skip_failure_threshold:
+                st.caption(
+                    f"Auto-skipped on future runs after {config.auto_skip_failure_threshold} failures."
+                )
+            ignore_key = f"ignore-failure-{index}"
+            if st.button("Ignore this URL", key=ignore_key):
+                field, value = append_ignored_url(config_path, str(issue["article_url"]))
+                clear_ingestion_failure(connection, str(issue["article_url"]))
+                connection.commit()
+                commit_config_files(
+                    config_path.parent,
+                    [config_path],
+                    f"Ignore failed ingestion URL ({value})",
+                )
+                st.toast(f"Added to `{field}`: `{value}`. Reload config on next ingest.")
+                st.rerun()
+        with st.expander("Manual config edit"):
+            st.markdown(
+                "Add the URL path segment or full URL to `config.yaml`:\n\n"
+                "```yaml\nignored_url_substrings:\n  - introducing-google-antigravity\n"
+                "# ignored_urls:\n#   - https://example.com/article\n```"
+            )
 
     items, total_items = list_items_page(connection, offset=st.session_state.page * PAGE_SIZE, limit=PAGE_SIZE)
 

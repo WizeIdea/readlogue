@@ -1,4 +1,16 @@
 database: data/reader.db
+
+# URLs skipped before fetch (no HTTP request, no validation). Substrings match anywhere in the normalized URL.
+ignored_url_substrings:
+  - introducing-google-antigravity
+
+# Optional exact URLs (trailing slashes ignored):
+# ignored_urls:
+#   - https://www.anthropic.com/research/cyber-toolkits-update
+
+# Stop re-fetching URLs after this many validation failures (default 3).
+auto_skip_failure_threshold: 3
+
 categories:
   - Technical Research
   - AI News
