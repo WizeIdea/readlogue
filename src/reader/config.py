@@ -20,6 +20,7 @@ class SourceConfig:
 
 @dataclass(frozen=True)
 class ListingSourceProfile:
+    fetcher: str = "requests"
     link_selector: str = "a[href]"
     allowed_url_prefixes: tuple[str, ...] = ()
     excluded_url_substrings: tuple[str, ...] = ()
@@ -33,12 +34,24 @@ class ListingSourceProfile:
 class AppConfig:
     database: Path
     sources: list[SourceConfig]
+    categories: list[str]
+
+
+DEFAULT_CATEGORIES = [
+    "Technical Research",
+    "AI News",
+    "Governance and Policy",
+    "Safety and Alignment",
+    "Product Updates",
+    "Other",
+]
 
 
 def load_config(path: str | Path) -> AppConfig:
     config_path = Path(path)
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     source_entries = raw.get("sources") or raw.get("feeds") or []
+    categories = [str(category) for category in raw.get("categories", DEFAULT_CATEGORIES)]
     sources = [
         SourceConfig(
             name=str(feed["name"]),
@@ -51,7 +64,7 @@ def load_config(path: str | Path) -> AppConfig:
         )
         for feed in source_entries
     ]
-    return AppConfig(database=Path(raw.get("database", "data/reader.db")), sources=sources)
+    return AppConfig(database=Path(raw.get("database", "data/reader.db")), sources=sources, categories=categories)
 
 
 def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:
@@ -61,6 +74,7 @@ def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:
     profile_path = Path(path)
     raw = yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
     return ListingSourceProfile(
+        fetcher=str(raw.get("fetcher", "requests")),
         link_selector=str(raw.get("link_selector", "a[href]")),
         allowed_url_prefixes=tuple(str(value) for value in raw.get("allowed_url_prefixes", [])),
         excluded_url_substrings=tuple(str(value) for value in raw.get("excluded_url_substrings", [])),

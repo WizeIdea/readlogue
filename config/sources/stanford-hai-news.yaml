@@ -1,7 +1,12 @@
-link_selector: a[href]
+link_selector: a[href*="/news/"]
 allowed_url_prefixes:
   - https://hai.stanford.edu/news/
-excluded_url_substrings: []
+excluded_url_substrings:
+  - /topics/
+  - /people/
+  - /search
+  - /subscribe
+  - /events
 title_selector: h1
 content_selectors:
   - article

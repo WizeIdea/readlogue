@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from reader.storage import ArticleRecord, connect, initialize, list_items, upsert_article
+from reader.storage import ArticleRecord, connect, initialize, list_items, set_category, upsert_article
 
 
 class StorageTests(unittest.TestCase):
@@ -23,10 +23,13 @@ class StorageTests(unittest.TestCase):
                     published_at="2026-06-26T00:00:00+00:00",
                 )
                 self.assertTrue(upsert_article(connection, article))
+                set_category(connection, 1, "Technical Research")
+                connection.commit()
                 self.assertFalse(upsert_article(connection, article))
                 rows = list_items(connection)
                 self.assertEqual(len(rows), 1)
                 self.assertEqual(rows[0]["title"], "First title")
+                self.assertEqual(rows[0]["category"], "Technical Research")
 
 
 if __name__ == "__main__":

@@ -32,16 +32,16 @@ def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
 
 def discover_listing_links(
     listing_url: str,
+    fetcher: str = "requests",
     link_selector: str = "a[href]",
     allowed_url_prefixes: tuple[str, ...] = (),
     excluded_url_substrings: tuple[str, ...] = (),
     max_links: int = 25,
     timeout: int = 15,
 ) -> list[str]:
-    requests = _load_requests()
-    response = requests.get(listing_url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
+    BeautifulSoup = _load_beautifulsoup()
+    html = _fetch_html(listing_url, fetcher=fetcher, timeout=timeout)
+    soup = BeautifulSoup(html, "html.parser")
     discovered = _discover_listing_links_from_soup(
         soup,
         listing_url,
@@ -75,17 +75,16 @@ def discover_listing_links_from_html(
 
 def extract_article(
     url: str,
+    fetcher: str = "requests",
     title_selector: str | None = None,
     content_selectors: tuple[str, ...] = (),
     paragraph_selector: str = "article p, main p, p",
     timeout: int = 15,
 ) -> tuple[str, str, str | None, str | None]:
-    requests = _load_requests()
     BeautifulSoup = _load_beautifulsoup()
-    response = requests.get(url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-    title = _first_text(soup, [title_selector] if title_selector else ["h1", "title"]) or listing_url
+    html = _fetch_html(url, fetcher=fetcher, timeout=timeout)
+    soup = BeautifulSoup(html, "html.parser")
+    title = _first_text(soup, [title_selector] if title_selector else ["h1", "title"]) or url
 
     content = ""
     if content_selectors:
@@ -111,6 +110,18 @@ def _first_text(soup: BeautifulSoup, selectors: list[str]) -> str:
             if text:
                 return text
     return ""
+
+
+def validate_listing_page(source_name: str, listing_url: str, article_urls: list[str]) -> None:
+    if not article_urls:
+        raise RuntimeError(f"No article links found for listing source '{source_name}' at {listing_url}")
+
+
+def validate_article_payload(source_name: str, article_url: str, title: str, content: str) -> None:
+    if not title or len(title.strip()) < 3:
+        raise RuntimeError(f"Missing or invalid title for article '{article_url}' from source '{source_name}'")
+    if not content or len(content.strip()) < 40:
+        raise RuntimeError(f"Missing or invalid content for article '{article_url}' from source '{source_name}'")
 
 
 def _first_meta_content(soup: BeautifulSoup, name: str) -> str | None:
@@ -187,9 +198,39 @@ def _load_requests():
     return requests
 
 
+def _load_selenium_driver():
+    try:
+        from selenium import webdriver
+        from selenium.webdriver.chrome.options import Options
+    except ModuleNotFoundError as exc:  # pragma: no cover - optional in tests.
+        raise RuntimeError("selenium is required for selenium-based fetching") from exc
+
+    options = Options()
+    options.add_argument("--headless=new")
+    options.add_argument("--no-sandbox")
+    options.add_argument("--disable-dev-shm-usage")
+    options.add_argument("--disable-gpu")
+    return webdriver.Chrome(options=options)
+
+
 def _load_beautifulsoup():
     try:
         from bs4 import BeautifulSoup
     except ModuleNotFoundError as exc:  # pragma: no cover - optional in tests.
         raise RuntimeError("beautifulsoup4 is required for scraping") from exc
     return BeautifulSoup
+
+
+def _fetch_html(url: str, fetcher: str, timeout: int) -> str:
+    if fetcher == "selenium":
+        driver = _load_selenium_driver()
+        try:
+            driver.get(url)
+            return driver.page_source
+        finally:
+            driver.quit()
+
+    requests = _load_requests()
+    response = requests.get(url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})
+    response.raise_for_status()
+    return response.text

@@ -7,6 +7,7 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 - Ingest RSS and scraped pages into a canonical SQLite database.
 - Store full article text for later model training.
 - Allow read/unread and Like/Dislike state changes from a Streamlit web page.
+- Allow manual category labeling from a configurable select list.
 - Export CSV and JSONL snapshots on demand for ML workflows.
 
 ## Current structure
@@ -18,9 +19,11 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 - `streamlit_app.py` is the UI entrypoint.
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually.
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
+- `config.example.yaml` now includes the manual category list used by the UI.
 
 ## Next steps
 
 1. Add real feed URLs to a local config file based on `config.example.yaml`.
-2. Add tests for storage, deduping, and exports.
-3. Add a richer scraper fallback for harder article pages.
+2. Finish source-specific date and category extraction for Anthropic and HAI.
+3. Add tests for manual category updates, storage persistence, deduping, and exports.
+4. Add a richer scraper fallback for harder article pages.

@@ -1,9 +1,11 @@
-link_selector: a[href]
+fetcher: selenium
+link_selector: a[href*="/research/"]
 allowed_url_prefixes:
   - https://www.anthropic.com/research/
   - https://www.anthropic.com/news/
 excluded_url_substrings:
   - /research/team/
+  - /research/page/
 title_selector: h1
 content_selectors:
   - article

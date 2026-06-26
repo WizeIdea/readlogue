@@ -1,4 +1,11 @@
 database: data/reader.db
+categories:
+  - Technical Research
+  - AI News
+  - Governance and Policy
+  - Safety and Alignment
+  - Product Updates
+  - Other
 sources:
   - name: deepmind-google-blog
     kind: rss

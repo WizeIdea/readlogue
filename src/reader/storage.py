@@ -28,6 +28,7 @@ class ArticleRecord:
     content: str
     published_at: str | None
     source_scraper: str = "rss"
+    category: str | None = None
     author: str | None = None
 
 
@@ -64,6 +65,7 @@ def initialize(database: str | Path) -> None:
                 content text not null default '',
                 author text,
                 published_at text,
+                category text,
                 read_at text,
                 rating text,
                 created_at text not null default current_timestamp,
@@ -76,6 +78,15 @@ def initialize(database: str | Path) -> None:
             create index if not exists idx_items_rating on items(rating);
             """
         )
+    _ensure_column(database, "items", "category", "text")
+
+
+def _ensure_column(database: str | Path, table_name: str, column_name: str, column_definition: str) -> None:
+    with connect(database) as connection:
+        columns = {row[1] for row in connection.execute(f"pragma table_info({table_name})")}
+        if column_name not in columns:
+            connection.execute(f"alter table {table_name} add column {column_name} {column_definition}")
+            connection.commit()
 
 
 def upsert_source(connection: sqlite3.Connection, name: str, source_url: str, scraper: str) -> int:
@@ -100,8 +111,8 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
         connection.execute(
             """
             insert into items(
-                source_id, fingerprint, url, title, summary, content, author, published_at, created_at, updated_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                source_id, fingerprint, url, title, summary, content, author, published_at, category, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 source_id,
@@ -112,6 +123,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
                 article.content,
                 article.author,
                 article.published_at,
+                article.category,
                 utc_now(),
                 utc_now(),
             ),
@@ -126,6 +138,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             content = case when content = '' then coalesce(nullif(?, ''), content) else content end,
             author = coalesce(nullif(?, ''), author),
             published_at = coalesce(nullif(?, ''), published_at),
+            category = coalesce(category, nullif(?, '')),
             updated_at = ?
         where fingerprint = ?
         """,
@@ -135,6 +148,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             article.content,
             article.author,
             article.published_at,
+            article.category,
             utc_now(),
             fingerprint,
         ),
@@ -153,6 +167,13 @@ def set_rating(connection: sqlite3.Connection, item_id: int, rating: str | None)
     connection.execute(
         "update items set rating = ?, updated_at = ? where id = ?",
         (rating, utc_now(), item_id),
+    )
+
+
+def set_category(connection: sqlite3.Connection, item_id: int, category: str | None) -> None:
+    connection.execute(
+        "update items set category = ?, updated_at = ? where id = ?",
+        (category, utc_now(), item_id),
     )
 
 
