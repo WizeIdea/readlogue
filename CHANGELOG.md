@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-06-26
+
+### Added
+- Raw HTML storage: `extract_article()` now returns the raw HTML as a 5th element, which is saved to `data/raw_html/YYYY-MM-DD/<uuid>.html` via `save_raw_html()`
+- `raw_html_path` column added to the `items` table (schema version bumped to 2) with automatic migration
+- `raw_html_path` field on `ArticleRecord` dataclass for persistence
+- `save_raw_html()` helper in `storage.py` — writes raw HTML to date-partitioned files
+- `ingest()` now accepts an optional `raw_html_dir` parameter (defaults to `data/`) for pointing at the data-repo checkout
+- Dual-repo GitHub Actions workflow: checks out `WizeIdea/readlogue_data_2026` alongside the main repo and commits new raw HTML files via `stefanzweifel/git-auto-commit-action@v5`
+
+### Changed
+- `extract_article()` return type expanded from 4-tuple to 5-tuple `(title, summary, content, author, raw_html)`
+- All internal calls to `extract_article()` updated to unpack the 5th element
+- `upsert_article()` persists `raw_html_path` on insert and preserves existing paths on update
+- `.github/workflows/ingest.yml` now uses dual-checkout pattern with data-repo deploy key
+
 ## [0.4.0] - 2026-06-26
 
 ### Added

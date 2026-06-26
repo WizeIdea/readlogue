@@ -11,7 +11,7 @@ from reader.scrapers import (
     parse_listing_articles,
     validate_listing_articles,
 )
-from reader.storage import ArticleRecord, connect, existing_item_fingerprints, initialize, item_fingerprint, log_ingestion_failure, upsert_article
+from reader.storage import ArticleRecord, connect, existing_item_fingerprints, initialize, item_fingerprint, log_ingestion_failure, save_raw_html, upsert_article
 from reader.validation import validate_content
 
 logger = logging.getLogger(__name__)
@@ -24,11 +24,13 @@ def _fetch_article(
     source_url: str,
     listing_article,
     profile: ListingSourceProfile | None,
+    *,
+    raw_html_dir: str | Path = "data",
 ) -> ArticleRecord | None:
     """Fetch an article page, validate content quality, and return an ArticleRecord
     or None if the article fails validation."""
     if profile is not None:
-        title, summary, content, author = extract_article(
+        title, summary, content, author, raw_html = extract_article(
             article_url,
             fetcher=profile.fetcher,
             title_selector=profile.title_selector,
@@ -37,7 +39,7 @@ def _fetch_article(
         )
         listing_summary = listing_article.summary
     else:
-        title, summary, content, author = extract_article(article_url, fetcher="requests")
+        title, summary, content, author, raw_html = extract_article(article_url, fetcher="requests")
         listing_summary = summary
 
     quality = validate_content(title, content, article_url, source_name)
@@ -46,7 +48,10 @@ def _fetch_article(
         logger.warning("Skipping article %s from '%s': %s", article_url, source_name, quality.reason)
         return None
 
+    # Save raw HTML to file
     published_at = listing_article.published_at if listing_article else None
+    raw_html_path = save_raw_html(raw_html, raw_html_dir, article_date=published_at)
+
     source_category = listing_article.source_category if listing_article else None
     return ArticleRecord(
         source_name=source_name,
@@ -60,10 +65,11 @@ def _fetch_article(
         source_category=source_category,
         category=None,
         author=author,
+        raw_html_path=raw_html_path,
     )
 
 
-def ingest(config_path: str | Path) -> int:
+def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
     config = load_config(config_path)
     initialize(config.database)
     new_items = 0
@@ -98,7 +104,7 @@ def ingest(config_path: str | Path) -> int:
                     article_url = listing_article.url
                     if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
                         continue
-                    record = _fetch_article(connection, article_url, source.name, source.url, listing_article, profile)
+                    record = _fetch_article(connection, article_url, source.name, source.url, listing_article, profile, raw_html_dir=raw_html_dir)
                     if record is None:
                         skipped_items += 1
                         continue
@@ -132,7 +138,7 @@ def ingest(config_path: str | Path) -> int:
                     article_url = listing_article.url
                     if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
                         continue
-                    record = _fetch_article(connection, article_url, source.name, source.url, listing_article, profile)
+                    record = _fetch_article(connection, article_url, source.name, source.url, listing_article, profile, raw_html_dir=raw_html_dir)
                     if record is None:
                         skipped_items += 1
                         continue
@@ -140,13 +146,14 @@ def ingest(config_path: str | Path) -> int:
                     object.__setattr__(article_record, "source_scraper", source.scraper)
                     articles.append(article_record)
             else:
-                title, summary, content, author = extract_article(source.url, fetcher=source.scraper)
+                title, summary, content, author, raw_html = extract_article(source.url, fetcher=source.scraper)
                 quality = validate_content(title, content, source.url, source.name)
                 if not quality.is_valid:
                     log_ingestion_failure(connection, source.name, source.url, quality.reason or "unknown validation failure")
                     logger.warning("Skipping article %s from '%s': %s", source.url, source.name, quality.reason)
                     skipped_items += 1
                     continue
+                raw_html_path = save_raw_html(raw_html, raw_html_dir, article_date=None)
                 articles = [
                     ArticleRecord(
                         source_name=source.name,
@@ -160,6 +167,7 @@ def ingest(config_path: str | Path) -> int:
                         source_category=None,
                         category=None,
                         author=author,
+                        raw_html_path=raw_html_path,
                     )
                 ]
 

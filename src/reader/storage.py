@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -11,7 +12,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 def utc_now() -> str:
@@ -50,6 +51,7 @@ class ArticleRecord:
     source_category: str | None = None
     category: str | None = None
     author: str | None = None
+    raw_html_path: str | None = None
 
 
 @contextmanager
@@ -125,14 +127,15 @@ def _run_migrations(connection: sqlite3.Connection) -> None:
     ).fetchone()
     current_version = int(row["current_version"]) if row and row["current_version"] is not None else 0
 
-    migrations: list[tuple[int, str, str]] = [
-        (1, "items", "category"),
-        (1, "items", "source_category"),
+    migrations: list[tuple[int, str, str, str]] = [
+        (1, "items", "category", "text"),
+        (1, "items", "source_category", "text"),
+        (2, "items", "raw_html_path", "text"),
     ]
 
-    for version, table_name, column_name in migrations:
+    for version, table_name, column_name, column_def in migrations:
         if version > current_version:
-            _ensure_column(connection, table_name, column_name, "text")
+            _ensure_column(connection, table_name, column_name, column_def)
 
     if current_version < SCHEMA_VERSION:
         connection.execute(
@@ -164,13 +167,14 @@ def upsert_source(connection: sqlite3.Connection, name: str, source_url: str, sc
 def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bool:
     source_id = upsert_source(connection, article.source_name, article.source_url, article.source_scraper)
     fingerprint = item_fingerprint(article.url)
-    existing = connection.execute("select id from items where fingerprint = ?", (fingerprint,)).fetchone()
+    existing = connection.execute("select id, raw_html_path from items where fingerprint = ?", (fingerprint,)).fetchone()
     if existing is None:
         connection.execute(
             """
             insert into items(
-                source_id, fingerprint, url, title, summary, content, author, published_at, source_category, category, created_at, updated_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                source_id, fingerprint, url, title, summary, content, author, published_at,
+                source_category, category, raw_html_path, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 source_id,
@@ -183,12 +187,16 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
                 article.published_at,
                 article.source_category,
                 article.category,
+                article.raw_html_path,
                 utc_now(),
                 utc_now(),
             ),
         )
         return True
 
+    # On update: preserve the existing raw_html_path if the new article doesn't have one
+    # (this handles the case where an RSS article later gets a scraped version)
+    raw_path = article.raw_html_path or existing["raw_html_path"]
     connection.execute(
         """
         update items
@@ -199,6 +207,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             published_at = coalesce(nullif(?, ''), published_at),
             source_category = coalesce(nullif(?, ''), source_category),
             category = coalesce(category, nullif(?, '')),
+            raw_html_path = coalesce(nullif(?, ''), raw_html_path),
             updated_at = ?
         where fingerprint = ?
         """,
@@ -210,6 +219,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             article.published_at,
             article.source_category,
             article.category,
+            raw_path,
             utc_now(),
             fingerprint,
         ),
@@ -338,3 +348,36 @@ def recent_ingestion_issues(
         """,
         (limit,),
     ).fetchall()
+
+
+def save_raw_html(
+    raw_html: str,
+    base_dir: str | Path,
+    article_date: str | None = None,
+) -> str:
+    """Write *raw_html* to a file and return the relative path.
+
+    File is stored at:  *base_dir* / raw_html / YYYY-MM-DD / <uuid>.html
+
+    If *article_date* is ``None``, the current UTC date is used.
+    The returned path is relative to *base_dir*.
+    """
+    base = Path(base_dir)
+
+    if article_date:
+        # article_date is an ISO string like "2026-06-26T16:30:01+00:00"
+        date_part = article_date[:10]
+    else:
+        date_part = utc_now()[:10]
+
+    subdir = base / "raw_html" / date_part
+    subdir.mkdir(parents=True, exist_ok=True)
+
+    filename = f"{uuid.uuid4().hex}.html"
+    filepath = subdir / filename
+    filepath.write_text(raw_html, encoding="utf-8")
+
+    # return relative path e.g. "raw_html/2026-06-26/a1b2c3d4e5f6.html"
+    return f"raw_html/{date_part}/{filename}"
+
+

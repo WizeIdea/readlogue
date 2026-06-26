@@ -14,13 +14,14 @@ Readlogue is a Python RSS/news reader focused on preserving article data for fut
 
 ## Current structure
 
-- `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, and exports.
-- `src/reader/scrapers.py` contains RSS and page-extraction helpers.
+- `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, exports, and raw HTML file storage.
+- `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` now returns raw HTML for ML pipelines.
 - `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
-- `src/reader/ingest.py` orchestrates feed ingestion with content validation and failure logging.
+- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival.
 - `src/reader/export.py` builds CSV and JSONL datasets.
 - `streamlit_app.py` is the UI entrypoint; displays a warning banner when the last ingestion skipped articles.
-- `.github/workflows/ingest.yml` runs ingestion on a schedule or manually.
+- `.github/workflows/ingest.yml` runs ingestion on a schedule or manually using a dual-repo checkout pattern.
+- Raw HTML is saved to `data/raw_html/YYYY-MM-DD/<uuid>.html` and committed to a separate data repository (`WizeIdea/readlogue_data_2026`) via `stefanzweifel/git-auto-commit-action`.
 - The scheduled GitHub Action runs daily and only fetches article pages that are not already in SQLite.
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
 - `config.example.yaml` now includes the manual category list used by the UI.

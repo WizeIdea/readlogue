@@ -216,7 +216,11 @@ def extract_article(
     content_selectors: tuple[str, ...] = (),
     paragraph_selector: str = "article p, main p, p",
     timeout: int = 15,
-) -> tuple[str, str, str | None, str | None]:
+) -> tuple[str, str, str | None, str | None, str]:
+    """Fetch *url*, parse it, and return (title, summary, content, author, raw_html).
+
+    The last element is the raw HTML fetched from the page, saved for ML pipelines.
+    """
     BeautifulSoup = _load_beautifulsoup()
     html = _fetch_html(url, fetcher=fetcher, timeout=timeout)
     soup = BeautifulSoup(html, "html.parser")
@@ -233,7 +237,7 @@ def extract_article(
 
     summary = content[:500]
     author = _first_meta_content(soup, "author")
-    return title, summary, content, author
+    return title, summary, content, author, html
 
 
 def _first_text(soup: BeautifulSoup, selectors: list[str]) -> str:

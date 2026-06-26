@@ -20,14 +20,36 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e .
+
       - name: Install Playwright browser
         run: playwright install chromium
+
+      # Checkout the data repo for raw HTML storage
+      - uses: actions/checkout@v4
+        with:
+          repository: WizeIdea/readlogue_data_2026
+          path: data-repo
+          ssh-key: ${{ secrets.DATA_REPO_DEPLOY_KEY }}
+
       - name: Run ingestion and exports
+        env:
+          RAW_HTML_DIR: data-repo
         run: |
           python - <<'PY'
+          import os
+          from pathlib import Path
           from reader.ingest import ingest
           from reader.export import export_datasets
 
-          ingest("config.example.yaml")
+          raw_dir = os.environ.get("RAW_HTML_DIR", "data-repo")
+          ingest("config.example.yaml", raw_html_dir=raw_dir)
           export_datasets("data/reader.db")
           PY
+
+      - name: Commit and push raw HTML to data repo
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Automated: Ingested new raw HTML articles"
+          repository: data-repo
+          commit_user_name: readlogue-bot
+          commit_user_email: bot@readlogue.local
