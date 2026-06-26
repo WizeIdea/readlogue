@@ -19,6 +19,9 @@ class ListingArticle:
     author: str | None = None
 
 
+HF_API_URL = "https://huggingface.co/api/blog"
+
+
 def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
     feedparser = _load_feedparser()
     parsed = feedparser.parse(source_url)
@@ -43,6 +46,61 @@ def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
             )
         )
     return articles
+
+
+def parse_huggingface_tag_articles(tag: str) -> list[ListingArticle]:
+    requests = _load_requests()
+    all_articles: list[ListingArticle] = []
+    seen_links: set[str] = set()
+    page = 0
+
+    while True:
+        response = requests.get(HF_API_URL, params={"tag": tag, "page": page}, timeout=15, headers={"User-Agent": "reader/0.1.0"})
+        response.raise_for_status()
+        payload = response.json()
+        blogs = payload.get("allBlogs", []) or []
+        if not blogs:
+            break
+
+        for blog in blogs:
+            title = _clean_text(blog.get("title"))
+            if not title:
+                continue
+
+            url_value = blog.get("url") or f"/blog/{blog.get('slug', '')}"
+            link = _normalize_url(f"https://huggingface.co{url_value}" if str(url_value).startswith("/") else str(url_value))
+            if link in seen_links:
+                continue
+
+            seen_links.add(link)
+            published_at = _parse_iso_date(str(blog.get("publishedAt") or ""))
+            tags = [
+                _clean_text(tag_value)
+                for tag_value in (blog.get("tags") or [])
+                if _clean_text(tag_value)
+            ]
+            source_category = tags[0] if tags else tag.title()
+            description = _clean_text(blog.get("description") or "")
+            if not description:
+                description = title if not tags else f"{title} ({', '.join(tags)})"
+
+            all_articles.append(
+                ListingArticle(
+                    url=link,
+                    title=title,
+                    summary=description[:500],
+                    published_at=published_at,
+                    source_category=source_category,
+                    author=_clean_text(blog.get("author")) or None,
+                )
+            )
+
+        total = payload.get("numTotalItems")
+        if total is not None and len(seen_links) >= int(total):
+            break
+        page += 1
+
+    return all_articles
 
 
 def parse_listing_articles(
@@ -242,11 +300,11 @@ def _extract_date_from_item(item, date_selectors: tuple[str, ...], date_formats:
     candidates: list[str] = []
     for selector in date_selectors:
         for element in item.select(selector):
+            if element.get("datetime"):
+                candidates.append(_clean_text(element.get("datetime")))
             text = _clean_text(element.get_text(" ", strip=True))
             if text:
                 candidates.append(text)
-            if element.get("datetime"):
-                candidates.append(_clean_text(element.get("datetime")))
 
     for candidate in candidates:
         parsed = _parse_date_text(candidate, date_formats)

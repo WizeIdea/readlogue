@@ -1,0 +1,27 @@
+fetcher: requests
+item_selector: article, main article, main section, a[href*="/blog/"]
+link_selector: a[href*="/blog/"]
+allowed_url_prefixes:
+  - https://bair.berkeley.edu/blog/
+excluded_url_substrings:
+  - /blog/page/
+  - /blog/archive/
+  - /blog/subscribe/
+title_selectors:
+  - h1
+  - h2
+  - h3
+date_selectors:
+  - time[datetime]
+  - time
+  - p
+date_formats:
+  - "%b %d, %Y"
+  - "%B %d, %Y"
+  - "%b %d %Y"
+  - "%B %d %Y"
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 40

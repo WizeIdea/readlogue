@@ -21,6 +21,7 @@ class SourceConfig:
 @dataclass(frozen=True)
 class ListingSourceProfile:
     fetcher: str = "requests"
+    api_tag: str | None = None
     item_selector: str = "a[href]"
     link_selector: str = "a[href]"
     allowed_url_prefixes: tuple[str, ...] = ()
@@ -80,6 +81,7 @@ def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:
     raw = yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
     return ListingSourceProfile(
         fetcher=str(raw.get("fetcher", "requests")),
+        api_tag=(str(raw["api_tag"]) if raw.get("api_tag") else None),
         item_selector=str(raw.get("item_selector", raw.get("link_selector", "a[href]"))),
         link_selector=str(raw.get("link_selector", "a[href]")),
         allowed_url_prefixes=tuple(str(value) for value in raw.get("allowed_url_prefixes", [])),

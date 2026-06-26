@@ -9,6 +9,7 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 - Allow read/unread and Like/Dislike state changes from a Streamlit web page.
 - Allow manual category labeling from a configurable select list.
 - Extract source-specific dates and source categories from non-RSS listing pages.
+- Support tag-aware Hugging Face ingestion so Ethics and Research can be tracked separately.
 - Export CSV and JSONL snapshots on demand for ML workflows.
 
 ## Current structure
@@ -22,6 +23,7 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
 - `config.example.yaml` now includes the manual category list used by the UI.
 - Non-RSS source profiles now also carry source-specific selectors for date and category extraction.
+- Hugging Face is handled as a tag-aware source because the public RSS feed does not expose the category split we need.
 
 ## Next steps
 

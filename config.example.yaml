@@ -7,6 +7,18 @@ categories:
   - Product Updates
   - Other
 sources:
+  - name: huggingface-ethics
+    kind: api_tag
+    url: https://huggingface.co/blog?tag=ethics
+    scraper: requests
+    config: config/sources/huggingface-ethics.yaml
+
+  - name: huggingface-research
+    kind: api_tag
+    url: https://huggingface.co/blog?tag=research
+    scraper: requests
+    config: config/sources/huggingface-research.yaml
+
   - name: deepmind-google-blog
     kind: rss
     url: https://deepmind.google/blog/rss.xml
@@ -28,3 +40,9 @@ sources:
     url: https://hai.stanford.edu/news
     scraper: beautifulsoup
     config: config/sources/stanford-hai-news.yaml
+
+  - name: bair-blog
+    kind: listing
+    url: https://bair.berkeley.edu/blog/
+    scraper: requests
+    config: config/sources/bair-blog.yaml

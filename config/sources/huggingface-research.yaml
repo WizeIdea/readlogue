@@ -1,0 +1,8 @@
+api_tag: research
+fetcher: requests
+title_selector: h1
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 25
