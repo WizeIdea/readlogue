@@ -2,6 +2,8 @@
 
 Licensed under the [Apache License, Version 2.0](LICENSE).
 
+![Ingestion Workflow](https://github.com/WizeIdea/readlogue/actions/workflows/ingest.yml/badge.svg)
+
 **ReadLogue** is a modular, automated research pipeline designed to aggregate, curate, and persist technical literature from diverse sources—including those without native RSS feeds. 
 
 Unlike traditional RSS readers that prioritize consumption, ReadLogue is built as a **Data Ingestion Pipeline**, designed to serve as a persistent, research-grade corpus for downstream AI implementation.
@@ -35,6 +37,25 @@ ReadLogue is designed to evolve with future ML projects:
 - Extract source-specific dates and source categories from non-RSS listing pages.
 - Support tag-aware Hugging Face ingestion so Ethics and Research can be tracked separately.
 - Export CSV and JSONL snapshots on demand for ML workflows.
+
+## Requirements
+
+- **Python 3.11+** — required to run the ingestion pipeline and Streamlit UI
+- **pip** — for local development and dependency management
+- **GitHub Actions** — for scheduled, serverless ingestion (no local cron needed)
+- **Optional: Playwright** — for browser-based scraping of JavaScript-heavy sites (most sources work with `requests` only)
+
+## Contributing
+
+ReadLogue is designed to be extended by adding new source configurations. If you want to add a new RSS feed, blog, or API endpoint:
+
+1. Check the existing `config/sources/` profiles for examples
+2. Add your source to `config.example.yaml` or a local config file
+3. If the source needs custom selectors, create a new profile in `config/sources/`
+4. Run ingestion and verify the output
+5. Open a PR with your config and any new scraper logic
+
+See [Adding a new news source](#adding-a-new-news-source) below for the full pattern.
 
 ## Current structure
 
