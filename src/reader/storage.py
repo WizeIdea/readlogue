@@ -11,6 +11,9 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
+SCHEMA_VERSION = 1
+
+
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -94,18 +97,54 @@ def initialize(database: str | Path) -> None:
             create index if not exists idx_items_source_id on items(source_id);
             create index if not exists idx_items_read_at on items(read_at);
             create index if not exists idx_items_rating on items(rating);
+
+            create table if not exists schema_version (
+                version integer not null,
+                applied_at text not null default current_timestamp
+            );
+
+            create table if not exists ingestion_log (
+                id integer primary key autoincrement,
+                source_name text not null,
+                article_url text not null,
+                severity text not null default 'warning',
+                message text not null,
+                created_at text not null default current_timestamp
+            );
+
+            create index if not exists idx_ingestion_log_created on ingestion_log(created_at);
             """
         )
-    _ensure_column(database, "items", "category", "text")
-    _ensure_column(database, "items", "source_category", "text")
+        _run_migrations(connection)
+        connection.commit()
 
 
-def _ensure_column(database: str | Path, table_name: str, column_name: str, column_definition: str) -> None:
-    with connect(database) as connection:
-        columns = {row[1] for row in connection.execute(f"pragma table_info({table_name})")}
-        if column_name not in columns:
-            connection.execute(f"alter table {table_name} add column {column_name} {column_definition}")
-            connection.commit()
+def _run_migrations(connection: sqlite3.Connection) -> None:
+    row = connection.execute(
+        "select max(version) as current_version from schema_version"
+    ).fetchone()
+    current_version = int(row["current_version"]) if row and row["current_version"] is not None else 0
+
+    migrations: list[tuple[int, str, str]] = [
+        (1, "items", "category"),
+        (1, "items", "source_category"),
+    ]
+
+    for version, table_name, column_name in migrations:
+        if version > current_version:
+            _ensure_column(connection, table_name, column_name, "text")
+
+    if current_version < SCHEMA_VERSION:
+        connection.execute(
+            "insert into schema_version(version) values (?)",
+            (SCHEMA_VERSION,),
+        )
+
+
+def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name: str, column_definition: str) -> None:
+    columns = {row[1] for row in connection.execute(f"pragma table_info({table_name})")}
+    if column_name not in columns:
+        connection.execute(f"alter table {table_name} add column {column_name} {column_definition}")
 
 
 def upsert_source(connection: sqlite3.Connection, name: str, source_url: str, scraper: str) -> int:
@@ -268,3 +307,34 @@ def export_jsonl(connection: sqlite3.Connection, path: str | Path) -> Path:
         for row in rows:
             handle.write(json.dumps(dict(row), ensure_ascii=False) + "\n")
     return output_path
+
+
+def log_ingestion_failure(
+    connection: sqlite3.Connection,
+    source_name: str,
+    article_url: str,
+    message: str,
+    severity: str = "warning",
+) -> None:
+    connection.execute(
+        """
+        insert into ingestion_log(source_name, article_url, severity, message, created_at)
+        values (?, ?, ?, ?, ?)
+        """,
+        (source_name, article_url, severity, message, utc_now()),
+    )
+
+
+def recent_ingestion_issues(
+    connection: sqlite3.Connection,
+    limit: int = 50,
+) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        select source_name, article_url, severity, message, created_at
+        from ingestion_log
+        order by created_at desc
+        limit ?
+        """,
+        (limit,),
+    ).fetchall()

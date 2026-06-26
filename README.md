@@ -14,11 +14,12 @@ Readlogue is a Python RSS/news reader focused on preserving article data for fut
 
 ## Current structure
 
-- `src/reader/storage.py` handles SQLite schema, upserts, state changes, and exports.
+- `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, and exports.
 - `src/reader/scrapers.py` contains RSS and page-extraction helpers.
-- `src/reader/ingest.py` orchestrates feed ingestion.
+- `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
+- `src/reader/ingest.py` orchestrates feed ingestion with content validation and failure logging.
 - `src/reader/export.py` builds CSV and JSONL datasets.
-- `streamlit_app.py` is the UI entrypoint.
+- `streamlit_app.py` is the UI entrypoint; displays a warning banner when the last ingestion skipped articles.
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually.
 - The scheduled GitHub Action runs daily and only fetches article pages that are not already in SQLite.
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
@@ -32,10 +33,11 @@ The UI is the Streamlit app in `streamlit_app.py`.
 
 1. Start the app with Streamlit using the repo's configured Python environment.
 2. Open the page and load the same config file that ingestion uses.
-3. Each article card shows the title, source, URL, summary, read status, rating, source category, and manual category.
-4. Use `Mark read` and `Mark unread` to update the read state.
-5. Use `Like` and `Dislike` to set the article rating.
-6. Use the category dropdown to assign a manual label from the configured category list.
+3. Articles are paginated (25 per page). Use the `← Previous` / `Next →` buttons at the bottom to navigate.
+4. Each article card shows the title, source, URL, summary, read status, rating, source category, and manual category.
+5. Use `Mark read` and `Mark unread` to update the read state.
+6. Use `Like` and `Dislike` to set the article rating.
+7. Use the category dropdown to assign a manual label from the configured category list.
 
 These actions update the SQLite database directly:
 
@@ -93,12 +95,12 @@ For non-RSS sources, the profile file may also define:
 
 ### Database fields used by each ingested item
 
-The database stores the source itself in `sources` and the article data in `items`.
+The database stores the source itself in `sources` and the article data in `items`. Schema migrations are tracked in a `schema_version` table so the database can be upgraded safely across releases.
 
 Required or strongly recommended item fields for ingestion:
 
 - `source_id`: internal link back to the source row.
-- `fingerprint`: unique item key derived from the article URL.
+- `fingerprint`: unique item key derived from the article URL (query parameters and fragments are stripped before hashing to prevent duplicates from tracking params).
 - `url`: canonical article URL.
 - `title`: article title.
 - `content`: full article body text.

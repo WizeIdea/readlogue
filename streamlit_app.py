@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections import Counter
 from pathlib import Path
 
 import streamlit as st
 
 from reader.config import load_config
-from reader.storage import connect, initialize, list_items_page, mark_read, set_category, set_rating
+from reader.storage import connect, initialize, list_items_page, mark_read, recent_ingestion_issues, set_category, set_rating
 
 
 st.set_page_config(page_title="Reader", layout="wide")
@@ -25,6 +26,31 @@ st.sidebar.write(f"Page size: {PAGE_SIZE}")
 st.sidebar.write(f"Items per page: {PAGE_SIZE}")
 
 with connect(config.database) as connection:
+    # Show recent ingestion warnings at the top of the page
+    issues = recent_ingestion_issues(connection, limit=50)
+    if issues:
+        source_counter: Counter[str] = Counter()
+        reason_counter: Counter[str] = Counter()
+        issue_details: dict[str, set[str]] = {}
+        for issue in issues:
+            source = issue["source_name"]
+            msg = issue["message"]
+            source_counter[source] += 1
+            reason_counter[msg] += 1
+            if source not in issue_details:
+                issue_details[source] = set()
+            issue_details[source].add(msg)
+
+        lines: list[str] = []
+        for source, count in source_counter.most_common():
+            reasons = "; ".join(sorted(issue_details[source]))
+            lines.append(f"  • **{source}**: {count} article(s) skipped — {reasons}")
+
+        st.warning(
+            "⚠️ **Content quality issues detected in the last ingestion**\n\n"
+            + "\n".join(lines)
+        )
+
     items, total_items = list_items_page(connection, offset=st.session_state.page * PAGE_SIZE, limit=PAGE_SIZE)
 
 total_pages = max(0, (total_items - 1) // PAGE_SIZE) if total_items > 0 else 0

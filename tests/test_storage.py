@@ -4,7 +4,63 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from reader.storage import ArticleRecord, connect, existing_item_fingerprints, initialize, item_fingerprint, list_items, list_items_page, set_category, upsert_article
+from reader.storage import ArticleRecord, SCHEMA_VERSION, connect, existing_item_fingerprints, initialize, item_fingerprint, list_items, list_items_page, set_category, upsert_article
+
+
+class SchemaVersionTests(unittest.TestCase):
+    def test_fresh_database_has_current_version(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                row = connection.execute(
+                    "select max(version) as v from schema_version"
+                ).fetchone()
+                self.assertIsNotNone(row)
+                self.assertEqual(int(row["v"]), SCHEMA_VERSION)
+
+    def test_initialize_is_idempotent(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            initialize(database)  # second call
+            with connect(database) as connection:
+                rows = connection.execute(
+                    "select count(*) as cnt from schema_version"
+                ).fetchone()
+                self.assertEqual(int(rows["cnt"]), 1)
+
+    def test_migration_does_not_overwrite_existing_data(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                article = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url="https://example.com/post-1",
+                    title="First title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                    source_category="Technical Research",
+                )
+                upsert_article(connection, article)
+                connection.commit()
+                row = connection.execute("select id from items").fetchone()
+                self.assertIsNotNone(row)
+                self.assertEqual(int(row["id"]), 1)
+
+    def test_schema_version_table_structure(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                columns = {
+                    row[1] for row in connection.execute("pragma table_info(schema_version)")
+                }
+                self.assertIn("version", columns)
+                self.assertIn("applied_at", columns)
 
 
 class FingerprintTests(unittest.TestCase):
