@@ -5,6 +5,39 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.3] - 2026-06-27
+
+### Added
+- Live SQLite index `data/reader.db` is tracked in the main repository and committed by GitHub Actions after each ingest
+- `src/reader/db_backup.py`: daily DB backups (7-day rotation) and permanent monthly backups (on the 1st) written to the data repository under `db_backups/daily/` and `db_backups/monthly/`
+- GitHub Actions: `contents: write` permission, post-ingest backup step, main-repo commit for `data/reader.db`, expanded data-repo commit for HTML and DB backups
+
+### Changed
+- Storage split documented: live DB on main repo; raw HTML and DB backups on `readlogue_data_2026`
+- `.gitignore` now allows only `data/reader.db` under `data/` (other `data/` contents remain ignored)
+
+## [0.4.2] - 2026-06-27
+
+### Fixed
+- Raw HTML storage: skip writing a new file when the article already has `raw_html_path` in SQLite and the file exists on disk; reuse the existing path instead
+- `upsert_article` update path now preserves the first captured `raw_html_path` instead of overwriting it with a duplicate file
+- RSS ingestion: normalize feed entry URLs with `_normalize_url()` so trailing-slash drift does not re-fetch and duplicate HTML
+
+### Added
+- In-run dedup: add each fetched fingerprint to the handler's in-memory set to avoid duplicate fetches within the same source batch
+- Ingestion summary counters logged at INFO (`skipped_existing`, `fetched`, `validation_failed`, `html_written`, `html_reused`, `new_db_rows`)
+- GitHub Actions: restrict data-repo auto-commit to `raw_html/**/*.html`
+
+## [0.4.1] - 2026-06-27
+
+### Fixed
+- Content validation: HTML residue check now flags only known HTML5 tag names (whitelist), ignoring pseudo-tags like `<bash>`, `<mask>`, and `</think>` that appear in HuggingFace and Anthropic article prose
+- Content validation: fenced Markdown code blocks are excluded from the HTML residue scan
+- Content extraction: strip `iframe`, `script`, `style`, and `noscript` nodes before Markdown conversion; also strip iframe markup left as text in code samples
+
+### Added
+- Per-article fetch timing logged at INFO in `_fetch_article()` for diagnosing slow ingestion runs in GitHub Actions
+
 ## [0.4.0] - 2026-06-27
 
 ### Fixed

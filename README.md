@@ -18,9 +18,37 @@ In the age of AI, information overload is a technical problem, not just a lifest
 
 ## Data Pipeline
 1.  **Ingest:** GitHub Actions execute the Python pipeline daily, fetching content from configured URLs.
-2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) to ensure filesystem performance.
-3.  **Index:** Metadata and labels (Read status, Rating, Category) are indexed in a local SQLite database, allowing for complex querying.
+2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) in the **data repository**.
+3.  **Index:** Metadata and labels (Read status, Rating, Category) are indexed in `data/reader.db` on the **main repository**, allowing for complex querying.
 4.  **Visualize:** A Streamlit-based UI serves as the curation layer, allowing manual tagging and classification—the critical "labeling" step for future ML pipelines.
+
+## Storage layout
+
+ReadLogue splits the lightweight index from the large corpus:
+
+| Asset | Repository | Path |
+|-------|------------|------|
+| Live SQLite index | **Main** (`readlogue`) | `data/reader.db` |
+| Raw HTML | **Data** (`readlogue_data_2026`) | `raw_html/YYYY-MM-DD/<uuid>.html` |
+| DB backups (daily + monthly) | **Data** (`readlogue_data_2026`) | `db_backups/daily/`, `db_backups/monthly/` |
+
+### Backup policy
+
+- **Git history** on the main repo is the default safety net for `data/reader.db` (every ingest commit keeps prior versions).
+- **Daily backups:** after each scheduled ingest, GHA copies the live DB to `db_backups/daily/reader-YYYY-MM-DD.db` in the data repo and retains the **7 most recent** daily files.
+- **Monthly backups:** on the 1st of each month, GHA also writes `db_backups/monthly/reader-YYYY-MM.db` in the data repo. Monthly files are **never deleted**.
+
+### GitHub Actions flow
+
+Each ingest job:
+
+1. Checks out the main repo (live `data/reader.db`) and the data repo (`data-repo/`).
+2. Runs ingestion — updates SQLite and writes new raw HTML under `data-repo/raw_html/`.
+3. Copies DB backups into `data-repo/db_backups/`.
+4. Commits `data/reader.db` to the **main** repo.
+5. Commits new HTML and backup files to the **data** repo.
+
+The Streamlit UI can update the same SQLite fields (`read_at`, `rating`, `category`) locally. Automatic sync of UI changes back to GitHub is planned for a later phase; until then, UI edits only affect a local checkout.
 
 ## Intended Outcomes
 ReadLogue is designed to evolve with future ML projects:
@@ -64,9 +92,12 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 - `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
 - `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival. RSS sources now fetch the full article page for each entry, not just the feed summary. Uses a source-kind registry (`SOURCE_HANDLERS`) to dispatch to the appropriate handler without an `if/elif` chain.
 - CSV and JSONL export functions live in `src/reader/storage.py` (`export_csv`, `export_jsonl`).
+- `src/reader/db_backup.py` rotates daily (7) and monthly SQLite backups into the data repository after ingest.
 - `streamlit_app.py` is the UI entrypoint; displays a warning banner when the last ingestion skipped articles.
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually using a dual-repo checkout pattern.
-- Raw HTML is saved to `data/raw_html/YYYY-MM-DD/<uuid>.html` and committed to a separate data repository (`WizeIdea/readlogue_data_2026`) via `stefanzweifel/git-auto-commit-action`.
+- The live SQLite index `data/reader.db` is committed to the **main** repository after each ingest.
+- Raw HTML is saved to `raw_html/YYYY-MM-DD/<uuid>.html` in the **data** repository (`WizeIdea/readlogue_data_2026`) via `stefanzweifel/git-auto-commit-action`.
+- DB backups are saved to `db_backups/daily/` and `db_backups/monthly/` in the same data repository.
 - The scheduled GitHub Action runs daily and only fetches article pages that are not already in SQLite.
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
 - `config.example.yaml` now includes the manual category list used by the UI.
@@ -75,7 +106,9 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 
 ## How to use the reader UI
 
-The UI is the Streamlit app in `streamlit_app.py`.
+The UI is the Streamlit app in `streamlit_app.py`. It reads and writes the same `data/reader.db` file that ingestion uses.
+
+**Note:** Automatic sync of UI changes to GitHub is not yet implemented. For now, the UI is intended for local development against a cloned database. Hosted deployment with auto-commit is planned for a later phase.
 
 1. Start the app with Streamlit using the repo's configured Python environment.
 2. Open the page and load the same config file that ingestion uses.

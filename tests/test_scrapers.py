@@ -5,10 +5,13 @@ from unittest.mock import Mock, patch
 
 from reader.scrapers import (
     _extract_content_from_selectors,
+    _strip_embed_markup,
     discover_listing_links_from_html,
     parse_huggingface_tag_articles,
     parse_listing_articles,
+    parse_rss_feed,
 )
+from reader.validation import validate_content
 
 
 class ScraperDiscoveryTests(unittest.TestCase):
@@ -139,6 +142,56 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertIn("full article body", content)
         self.assertNotIn("Short teaser card", content)
         self.assertGreater(len(content.split()), 10)
+
+    def test_extract_content_strips_iframe_before_markdown(self) -> None:
+        from bs4 import BeautifulSoup
+
+        filler = " ".join(f"word{i}" for i in range(60))
+        html = f"""
+        <html>
+          <body>
+            <main>
+              <p>{filler}</p>
+              <iframe src="https://example.com/embed"></iframe>
+              <p>More article text continues here with additional context and detail.</p>
+            </main>
+          </body>
+        </html>
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        content = _extract_content_from_selectors(soup, ("main",))
+        quality = validate_content("Title", content, "https://example.com/a", "test-source")
+
+        self.assertNotIn("<iframe", content.lower())
+        self.assertTrue(quality.is_valid)
+
+    def test_strip_embed_markup_removes_iframe_text(self) -> None:
+        markdown = "Example embed:\n<iframe src=\"https://example.com\"></iframe>\nMore text."
+        cleaned = _strip_embed_markup(markdown)
+        self.assertNotIn("<iframe", cleaned.lower())
+        self.assertIn("More text", cleaned)
+
+    @patch("reader.scrapers.feedparser")
+    def test_parse_rss_feed_normalizes_trailing_slash_urls(self, feedparser_mock: Mock) -> None:
+        entry = Mock()
+        entry.get = lambda key, default=None: {
+            "link": "https://example.com/post/",
+            "title": "Example",
+            "summary": "",
+            "published": "2026-06-26T00:00:00+00:00",
+            "updated": None,
+            "author": None,
+            "tags": [],
+        }.get(key, default)
+
+        parsed = Mock()
+        parsed.entries = [entry]
+        feedparser_mock.parse.return_value = parsed
+
+        articles = parse_rss_feed("test-source", "https://example.com/feed.xml")
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].url, "https://example.com/post")
 
 
 if __name__ == "__main__":

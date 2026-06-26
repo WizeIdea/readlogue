@@ -6,9 +6,10 @@ import re
 import requests
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
-from reader.storage import ArticleRecord
+from reader.storage import ArticleRecord, IngestStats
 
 
 @dataclass(slots=True)
@@ -29,27 +30,34 @@ HF_API_URL = "https://huggingface.co/api/blog"
 SOURCE_HANDLERS: dict[str, object] = {}
 
 
-def _handle_rss_source(source_config, connection, raw_html_dir: str | Path = "data") -> list:
+def _handle_rss_source(
+    source_config,
+    connection,
+    raw_html_dir: str | Path = "data",
+    *,
+    stats: IngestStats | None = None,
+) -> list:
     """Handle RSS sources: discover from feed, then fetch full article pages."""
-    import logging
-    logger = logging.getLogger(__name__)
     from reader.storage import existing_item_fingerprints, item_fingerprint
-    
+
     articles = []
-    skipped_items = 0
     raw_articles = parse_rss_feed(source_config.name, source_config.url)
     existing_fingerprints = existing_item_fingerprints(connection, [raw.url for raw in raw_articles])
-    
+
     for raw in raw_articles:
-        if raw.url and raw.url.strip() and item_fingerprint(raw.url) in existing_fingerprints:
+        fingerprint = item_fingerprint(raw.url) if raw.url and raw.url.strip() else None
+        if fingerprint and fingerprint in existing_fingerprints:
+            if stats is not None:
+                stats.skipped_existing += 1
             continue
         record = _fetch_article(
             connection, raw.url, source_config.name, source_config.url, None, None,
-            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper, stats=stats,
         )
         if record is None:
-            skipped_items += 1
             continue
+        if fingerprint:
+            existing_fingerprints.add(fingerprint)
         # Use RSS feed metadata as fallback
         object.__setattr__(record, "title", record.title or raw.title)
         object.__setattr__(record, "published_at", record.published_at or raw.published_at)
@@ -59,11 +67,17 @@ def _handle_rss_source(source_config, connection, raw_html_dir: str | Path = "da
     return articles
 
 
-def _handle_listing_source(source_config, connection, raw_html_dir: str | Path = "data") -> list:
+def _handle_listing_source(
+    source_config,
+    connection,
+    raw_html_dir: str | Path = "data",
+    *,
+    stats: IngestStats | None = None,
+) -> list:
     """Handle listing sources: discover links, then fetch full article pages."""
     from reader.config import load_listing_profile
     from reader.storage import existing_item_fingerprints, item_fingerprint
-    
+
     profile = load_listing_profile(source_config.config_path)
     discovered_articles = parse_listing_articles(
         source_config.url,
@@ -81,64 +95,102 @@ def _handle_listing_source(source_config, connection, raw_html_dir: str | Path =
     )
     validate_listing_articles(source_config.name, source_config.url, discovered_articles)
     existing_fingerprints = existing_item_fingerprints(connection, [la.url for la in discovered_articles])
-    
+
     articles = []
     for listing_article in discovered_articles:
         article_url = listing_article.url
-        if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
+        fingerprint = item_fingerprint(article_url) if article_url and article_url.strip() else None
+        if fingerprint and fingerprint in existing_fingerprints:
+            if stats is not None:
+                stats.skipped_existing += 1
             continue
         record = _fetch_article(
             connection, article_url, source_config.name, source_config.url, listing_article, profile,
-            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper, stats=stats,
         )
         if record is None:
             continue
+        if fingerprint:
+            existing_fingerprints.add(fingerprint)
         articles.append(record)
     return articles
 
 
-def _handle_api_tag_source(source_config, connection, raw_html_dir: str | Path = "data") -> list:
+def _handle_api_tag_source(
+    source_config,
+    connection,
+    raw_html_dir: str | Path = "data",
+    *,
+    stats: IngestStats | None = None,
+) -> list:
     """Handle API tag sources (e.g., HuggingFace blog tags)."""
     from reader.config import load_listing_profile
     from reader.storage import existing_item_fingerprints, item_fingerprint
-    
+
     profile = load_listing_profile(source_config.config_path)
     tag = profile.api_tag or source_config.settings.get("tag") or source_config.name
     discovered_articles = parse_huggingface_tag_articles(str(tag))
     validate_listing_articles(source_config.name, source_config.url, discovered_articles)
     existing_fingerprints = existing_item_fingerprints(connection, [la.url for la in discovered_articles])
-    
+
     articles = []
     for listing_article in discovered_articles:
         article_url = listing_article.url
-        if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
+        fingerprint = item_fingerprint(article_url) if article_url and article_url.strip() else None
+        if fingerprint and fingerprint in existing_fingerprints:
+            if stats is not None:
+                stats.skipped_existing += 1
             continue
         record = _fetch_article(
             connection, article_url, source_config.name, source_config.url, listing_article, profile,
-            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper, stats=stats,
         )
         if record is None:
             continue
+        if fingerprint:
+            existing_fingerprints.add(fingerprint)
         articles.append(record)
     return articles
 
 
-def _handle_direct_source(source_config, connection, raw_html_dir: str | Path = "data") -> list:
+def _handle_direct_source(
+    source_config,
+    connection,
+    raw_html_dir: str | Path = "data",
+    *,
+    stats: IngestStats | None = None,
+) -> list:
     """Handle direct URL sources: fetch a single article page."""
     import logging
     logger = logging.getLogger(__name__)
-    from reader.storage import log_ingestion_failure, save_raw_html
+    from reader.storage import existing_item_fingerprints, item_fingerprint, log_ingestion_failure, resolve_raw_html_path
     from reader.validation import validate_content
-    
+
+    if stats is not None:
+        existing = existing_item_fingerprints(connection, [source_config.url])
+        if item_fingerprint(source_config.url) in existing:
+            stats.skipped_existing += 1
+            return []
+
     articles = []
+    if stats is not None:
+        stats.fetched += 1
     title, summary, content, author, raw_html = extract_article(source_config.url, fetcher=source_config.scraper)
     quality = validate_content(title, content, source_config.url, source_config.name)
     if not quality.is_valid:
+        if stats is not None:
+            stats.validation_failed += 1
         log_ingestion_failure(connection, source_config.name, source_config.url, quality.reason or "unknown validation failure")
         logger.warning("Skipping article %s from '%s': %s", source_config.url, source_config.name, quality.reason)
         return articles
-    
-    raw_html_path = save_raw_html(raw_html, raw_html_dir, article_date=None)
+
+    raw_html_path = resolve_raw_html_path(
+        connection,
+        source_config.url,
+        raw_html,
+        raw_html_dir,
+        stats=stats,
+    )
     articles.append(
         ArticleRecord(
             source_name=source_config.name,
@@ -168,9 +220,18 @@ def _fetch_article(
     *,
     raw_html_dir: str | Path = "data",
     source_scraper: str = "requests",
+    stats: IngestStats | None = None,
 ) -> ArticleRecord | None:
     """Fetch an article page, validate content quality, and return an ArticleRecord
     or None if the article fails validation."""
+    import logging
+    import time
+
+    logger = logging.getLogger(__name__)
+    fetch_started = time.monotonic()
+    if stats is not None:
+        stats.fetched += 1
+
     if profile is not None:
         title, summary, content, author, raw_html = extract_article(
             article_url,
@@ -184,13 +245,21 @@ def _fetch_article(
         title, summary, content, author, raw_html = extract_article(article_url, fetcher="requests")
         listing_summary = summary
 
-    from reader.storage import log_ingestion_failure, save_raw_html
+    from reader.storage import log_ingestion_failure, resolve_raw_html_path
     from reader.validation import validate_content
-    import logging
-    logger = logging.getLogger(__name__)
 
     quality = validate_content(title, content, article_url, source_name)
+    elapsed = time.monotonic() - fetch_started
+    logger.info(
+        "Fetched %s in %.1fs (%d words, valid=%s)",
+        article_url,
+        elapsed,
+        quality.word_count,
+        quality.is_valid,
+    )
     if not quality.is_valid:
+        if stats is not None:
+            stats.validation_failed += 1
         # Log debug info to help diagnose extraction issues
         logger.debug(
             "Content extraction details for %s:\n  Title: %s\n  Content length: %d chars\n  Content preview: %s",
@@ -200,9 +269,16 @@ def _fetch_article(
         logger.warning("Skipping article %s from '%s': %s", article_url, source_name, quality.reason)
         return None
 
-    # Save raw HTML to file
+    # Save raw HTML to file when not already stored for this article
     published_at = listing_article.published_at if listing_article else None
-    raw_html_path = save_raw_html(raw_html, raw_html_dir, article_date=published_at)
+    raw_html_path = resolve_raw_html_path(
+        connection,
+        article_url,
+        raw_html,
+        raw_html_dir,
+        article_date=published_at,
+        stats=stats,
+    )
 
     source_category = listing_article.source_category if listing_article else None
     return ArticleRecord(
@@ -234,9 +310,10 @@ def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
     parsed = feedparser.parse(source_url)
     articles: list[ArticleRecord] = []
     for entry in parsed.entries:
-        url = entry.get("link", "").strip()
-        if not url:
+        link = entry.get("link", "").strip()
+        if not link:
             continue
+        url = _normalize_url(link)
         summary_html = entry.get("summary", "")
         summary_markdown = _html_to_markdown(summary_html) if summary_html else ""
         articles.append(
@@ -613,8 +690,20 @@ def _extract_content_from_selectors(soup: BeautifulSoup, selectors: tuple[str, .
     if best_node is None:
         return ""
 
-    markdown = _html_to_markdown(str(best_node))
-    return markdown
+    BeautifulSoup = _load_beautifulsoup()
+    fragment = BeautifulSoup(str(best_node), "html.parser")
+    for tag in fragment.select("iframe, script, style, noscript"):
+        tag.decompose()
+
+    markdown = _html_to_markdown(str(fragment))
+    return _strip_embed_markup(markdown)
+
+
+def _strip_embed_markup(markdown: str) -> str:
+    """Remove iframe embed markup that may survive as text inside code samples."""
+    stripped = re.sub(r"<iframe\b[^>]*>.*?</iframe>", "", markdown, flags=re.IGNORECASE | re.DOTALL)
+    stripped = re.sub(r"<iframe\b[^>]*/?>", "", stripped, flags=re.IGNORECASE)
+    return stripped.strip()
 
 
 def _html_to_markdown(html: str) -> str:

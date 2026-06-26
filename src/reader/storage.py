@@ -25,6 +25,53 @@ def item_fingerprint(url: str) -> str:
     return hashlib.sha256(clean_url.encode("utf-8")).hexdigest()
 
 
+@dataclass
+class IngestStats:
+    skipped_existing: int = 0
+    fetched: int = 0
+    validation_failed: int = 0
+    html_written: int = 0
+    html_reused: int = 0
+    new_db_rows: int = 0
+
+
+def existing_raw_html_path(
+    connection: sqlite3.Connection,
+    url: str,
+    raw_html_dir: str | Path,
+) -> str | None:
+    """Return stored raw_html_path if the article exists and the file is on disk."""
+    row = connection.execute(
+        "select raw_html_path from items where fingerprint = ?",
+        (item_fingerprint(url),),
+    ).fetchone()
+    if not row or not row["raw_html_path"]:
+        return None
+    path = Path(raw_html_dir) / str(row["raw_html_path"])
+    return str(row["raw_html_path"]) if path.is_file() else None
+
+
+def resolve_raw_html_path(
+    connection: sqlite3.Connection,
+    url: str,
+    raw_html: str,
+    raw_html_dir: str | Path,
+    *,
+    article_date: str | None = None,
+    stats: IngestStats | None = None,
+) -> str:
+    """Reuse an on-disk raw HTML file when present; otherwise write a new one."""
+    existing = existing_raw_html_path(connection, url, raw_html_dir)
+    if existing is not None:
+        if stats is not None:
+            stats.html_reused += 1
+        return existing
+    path = save_raw_html(raw_html, raw_html_dir, article_date=article_date)
+    if stats is not None:
+        stats.html_written += 1
+    return path
+
+
 def existing_item_fingerprints(connection: sqlite3.Connection, urls: list[str]) -> set[str]:
     fingerprints = [item_fingerprint(url) for url in urls if url.strip()]
     if not fingerprints:
@@ -194,9 +241,6 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
         )
         return True
 
-    # On update: preserve the existing raw_html_path if the new article doesn't have one
-    # (this handles the case where an RSS article later gets a scraped version)
-    raw_path = article.raw_html_path or existing["raw_html_path"]
     connection.execute(
         """
         update items
@@ -207,7 +251,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             published_at = coalesce(nullif(?, ''), published_at),
             source_category = coalesce(nullif(?, ''), source_category),
             category = coalesce(category, nullif(?, '')),
-            raw_html_path = coalesce(nullif(?, ''), raw_html_path),
+            raw_html_path = coalesce(nullif(raw_html_path, ''), nullif(?, '')),
             updated_at = ?
         where fingerprint = ?
         """,
@@ -219,7 +263,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             article.published_at,
             article.source_category,
             article.category,
-            raw_path,
+            article.raw_html_path,
             utc_now(),
             fingerprint,
         ),

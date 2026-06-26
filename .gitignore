@@ -4,6 +4,7 @@ __pycache__/
 .pytest_cache/
 .streamlit/
 *.db
-*.sqlite3
-data/
+!data/reader.db
+data/*
+!data/reader.db
 exports/

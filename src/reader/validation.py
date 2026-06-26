@@ -6,6 +6,25 @@ from dataclasses import dataclass
 # Default threshold
 _MIN_WORD_COUNT = 50
 
+# Common HTML5 tag names — only these count as markup residue when unescaped in Markdown.
+_KNOWN_HTML_TAGS: frozenset[str] = frozenset(
+    {
+        "a", "abbr", "address", "area", "article", "aside", "audio", "b", "base",
+        "bdi", "bdo", "blockquote", "body", "br", "button", "canvas", "caption",
+        "cite", "code", "col", "colgroup", "data", "datalist", "dd", "del", "details",
+        "dfn", "dialog", "div", "dl", "dt", "em", "embed", "fieldset", "figcaption",
+        "figure", "footer", "form", "h1", "h2", "h3", "h4", "h5", "h6", "head",
+        "header", "hr", "html", "i", "iframe", "img", "input", "ins", "kbd", "label",
+        "legend", "li", "link", "main", "map", "mark", "menu", "meta", "meter", "nav",
+        "noscript", "object", "ol", "optgroup", "option", "output", "p", "param",
+        "picture", "pre", "progress", "q", "rp", "rt", "ruby", "s", "samp", "script",
+        "section", "select", "small", "source", "span", "strong", "style", "sub",
+        "summary", "sup", "table", "tbody", "td", "template", "textarea", "tfoot",
+        "th", "thead", "time", "title", "tr", "track", "u", "ul", "var", "video",
+        "wbr",
+    }
+)
+
 # Roughly 200 of the most common English stop words, used as a simple heuristic
 # to distinguish real text from boilerplate / garbage.
 _ENGLISH_STOP_WORDS: frozenset[str] = frozenset(
@@ -114,12 +133,11 @@ def validate_content(
 
 def _has_html_residue(content: str) -> bool:
     """Detect unescaped HTML tags while ignoring common false positives."""
-    sanitized = re.sub(r"`[^`]*`", "", content)
+    sanitized = re.sub(r"```[\s\S]*?```", "", content)
+    sanitized = re.sub(r"`[^`]*`", "", sanitized)
     sanitized = re.sub(r"<https?://[^>]+>", "", sanitized)
 
     for match in re.finditer(r"</?([a-zA-Z][a-zA-Z0-9]*)[^>]*>", sanitized):
-        tag_name = match.group(1)
-        if tag_name[0].isupper():
-            continue
-        return True
+        if match.group(1).lower() in _KNOWN_HTML_TAGS:
+            return True
     return False

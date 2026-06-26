@@ -5,6 +5,9 @@ on:
   schedule:
     - cron: "0 3 * * *"
 
+permissions:
+  contents: write
+
 jobs:
   ingest:
     runs-on: ubuntu-latest
@@ -43,10 +46,35 @@ jobs:
           ingest("config.example.yaml", raw_html_dir=raw_dir)
           PY
 
-      - name: Commit and push raw HTML to data repo
+      - name: Backup database to data repo
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from reader.db_backup import backup_database
+
+          backup_database(
+              Path("data/reader.db"),
+              Path("data-repo/db_backups/daily"),
+              Path("data-repo/db_backups/monthly"),
+          )
+          PY
+
+      - name: Commit and push database to main repo
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "Automated: Ingested new raw HTML articles"
+          commit_message: "Automated: ingest DB update"
+          file_pattern: "data/reader.db"
+          commit_user_name: readlogue-bot
+          commit_user_email: bot@readlogue.local
+
+      - name: Commit and push raw HTML and DB backups to data repo
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Automated: ingest data repo update"
+          file_pattern: |
+            raw_html/**/*.html
+            db_backups/daily/*.db
+            db_backups/monthly/*.db
           repository: data-repo
           commit_user_name: readlogue-bot
           commit_user_email: bot@readlogue.local

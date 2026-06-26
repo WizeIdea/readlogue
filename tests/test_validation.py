@@ -111,6 +111,26 @@ class ValidateContentTests(unittest.TestCase):
         self.assertFalse(quality.is_valid)
         self.assertTrue(quality.html_residue)
 
+    def test_bash_pseudo_tags_pass(self) -> None:
+        text = _diverse_text(60) + " [Tool Use] <bash - pwd> and <bash - git log --oneline -20>"
+        quality = validate_content("Title", text, "https://example.com/a", "test-source")
+        self.assertTrue(quality.is_valid)
+
+    def test_document_chunk_pseudo_tags_pass(self) -> None:
+        text = _diverse_text(60) + " Split into <document> sections with <chunk> boundaries </chunk> </document>"
+        quality = validate_content("Title", text, "https://example.com/a", "test-source")
+        self.assertTrue(quality.is_valid)
+
+    def test_mask_and_redacted_thinking_pass(self) -> None:
+        text = _diverse_text(60) + " Uses <mask> tokens and </think> markers in prose."
+        quality = validate_content("Title", text, "https://example.com/a", "test-source")
+        self.assertTrue(quality.is_valid)
+
+    def test_fenced_code_block_tags_pass(self) -> None:
+        text = _diverse_text(60) + "\n```\n<bash>\necho hello\n</bash>\n```\n"
+        quality = validate_content("Title", text, "https://example.com/a", "test-source")
+        self.assertTrue(quality.is_valid)
+
 
 if __name__ == "__main__":
     unittest.main()

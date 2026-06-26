@@ -4,7 +4,22 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from reader.storage import ArticleRecord, SCHEMA_VERSION, connect, existing_item_fingerprints, initialize, item_fingerprint, list_items, list_items_page, set_category, upsert_article
+from reader.storage import (
+    ArticleRecord,
+    IngestStats,
+    SCHEMA_VERSION,
+    connect,
+    existing_item_fingerprints,
+    existing_raw_html_path,
+    initialize,
+    item_fingerprint,
+    list_items,
+    list_items_page,
+    resolve_raw_html_path,
+    save_raw_html,
+    set_category,
+    upsert_article,
+)
 
 
 class SchemaVersionTests(unittest.TestCase):
@@ -135,6 +150,97 @@ class StorageTests(unittest.TestCase):
                 self.assertEqual(rows[0]["title"], "First title")
                 self.assertEqual(rows[0]["source_category"], "Technical Research")
                 self.assertEqual(rows[0]["category"], "Technical Research")
+
+    def test_existing_raw_html_path_returns_path_when_file_exists(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            database = base / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                stored_path = save_raw_html("<html>saved</html>", base)
+                article = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url="https://example.com/post-1",
+                    title="Title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                    raw_html_path=stored_path,
+                )
+                upsert_article(connection, article)
+                connection.commit()
+                self.assertEqual(
+                    existing_raw_html_path(connection, "https://example.com/post-1", base),
+                    stored_path,
+                )
+
+    def test_resolve_raw_html_path_reuses_existing_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            database = base / "reader.db"
+            initialize(database)
+            stats = IngestStats()
+            with connect(database) as connection:
+                stored_path = save_raw_html("<html>saved</html>", base)
+                article = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url="https://example.com/post-1",
+                    title="Title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                    raw_html_path=stored_path,
+                )
+                upsert_article(connection, article)
+                connection.commit()
+
+                resolved = resolve_raw_html_path(
+                    connection,
+                    "https://example.com/post-1",
+                    "<html>new fetch</html>",
+                    base,
+                    stats=stats,
+                )
+
+                self.assertEqual(resolved, stored_path)
+                self.assertEqual(stats.html_reused, 1)
+                self.assertEqual(stats.html_written, 0)
+                self.assertEqual((base / stored_path).read_text(encoding="utf-8"), "<html>saved</html>")
+
+    def test_upsert_update_preserves_existing_raw_html_path(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                original = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url="https://example.com/post-1",
+                    title="Title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                    raw_html_path="raw_html/2026-06-26/original.html",
+                )
+                self.assertTrue(upsert_article(connection, original))
+                updated = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url="https://example.com/post-1",
+                    title="Updated title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                    raw_html_path="raw_html/2026-06-27/duplicate.html",
+                )
+                self.assertFalse(upsert_article(connection, updated))
+                row = connection.execute(
+                    "select raw_html_path from items where fingerprint = ?",
+                    (item_fingerprint("https://example.com/post-1"),),
+                ).fetchone()
+                self.assertEqual(row["raw_html_path"], "raw_html/2026-06-26/original.html")
 
 
 class PaginationTests(unittest.TestCase):
