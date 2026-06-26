@@ -1,0 +1,10 @@
+link_selector: a[href]
+allowed_url_prefixes:
+  - https://hai.stanford.edu/news/
+excluded_url_substrings: []
+title_selector: h1
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 25

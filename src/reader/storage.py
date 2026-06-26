@@ -4,6 +4,7 @@ import csv
 import hashlib
 import json
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,10 +31,14 @@ class ArticleRecord:
     author: str | None = None
 
 
-def connect(database: str | Path) -> sqlite3.Connection:
+@contextmanager
+def connect(database: str | Path):
     connection = sqlite3.connect(str(database))
     connection.row_factory = sqlite3.Row
-    return connection
+    try:
+        yield connection
+    finally:
+        connection.close()
 
 
 def initialize(database: str | Path) -> None:

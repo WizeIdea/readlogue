@@ -1,10 +1,23 @@
 database: data/reader.db
-feeds:
-  - name: example-rss
-    url: https://example.com/feed.xml
-    type: rss
+sources:
+  - name: deepmind-google-blog
+    kind: rss
+    url: https://deepmind.google/blog/rss.xml
     scraper: rss
-  - name: example-article
-    url: https://example.com/article
-    type: page
+
+  - name: openai-engineering
+    kind: rss
+    url: https://openai.com/news/engineering/rss.xml
+    scraper: rss
+
+  - name: anthropic-research
+    kind: listing
+    url: https://www.anthropic.com/research
     scraper: beautifulsoup
+    config: config/sources/anthropic-research.yaml
+
+  - name: stanford-hai-news
+    kind: listing
+    url: https://hai.stanford.edu/news
+    scraper: beautifulsoup
+    config: config/sources/stanford-hai-news.yaml

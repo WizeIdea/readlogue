@@ -17,6 +17,7 @@ Reader is a Python RSS/news reader focused on preserving article data for future
 - `src/reader/export.py` builds CSV and JSONL datasets.
 - `streamlit_app.py` is the UI entrypoint.
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually.
+- `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
 
 ## Next steps
 
