@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import contextlib
+import feedparser
 import re
+import requests
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from urllib.parse import urljoin, urlsplit, urlunsplit
@@ -21,9 +23,209 @@ class ListingArticle:
 
 HF_API_URL = "https://huggingface.co/api/blog"
 
+# Registry of source-kind handlers. Each handler receives the source config,
+# the database connection, and raw_html_dir, and returns a list of
+# ArticleRecord (or None for skipped items).
+SOURCE_HANDLERS: dict[str, object] = {}
+
+
+def _handle_rss_source(source_config, connection, raw_html_dir: str | Path = "data") -> list:
+    """Handle RSS sources: discover from feed, then fetch full article pages."""
+    import logging
+    logger = logging.getLogger(__name__)
+    from reader.storage import existing_item_fingerprints, item_fingerprint
+    
+    articles = []
+    skipped_items = 0
+    raw_articles = parse_rss_feed(source_config.name, source_config.url)
+    existing_fingerprints = existing_item_fingerprints(connection, [raw.url for raw in raw_articles])
+    
+    for raw in raw_articles:
+        if raw.url and raw.url.strip() and item_fingerprint(raw.url) in existing_fingerprints:
+            continue
+        record = _fetch_article(
+            connection, raw.url, source_config.name, source_config.url, None, None,
+            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+        )
+        if record is None:
+            skipped_items += 1
+            continue
+        # Use RSS feed metadata as fallback
+        object.__setattr__(record, "title", record.title or raw.title)
+        object.__setattr__(record, "published_at", record.published_at or raw.published_at)
+        object.__setattr__(record, "source_category", record.source_category or raw.source_category)
+        object.__setattr__(record, "author", record.author or raw.author)
+        articles.append(record)
+    return articles
+
+
+def _handle_listing_source(source_config, connection, raw_html_dir: str | Path = "data") -> list:
+    """Handle listing sources: discover links, then fetch full article pages."""
+    from reader.config import load_listing_profile
+    from reader.storage import existing_item_fingerprints, item_fingerprint
+    
+    profile = load_listing_profile(source_config.config_path)
+    discovered_articles = parse_listing_articles(
+        source_config.url,
+        fetcher=profile.fetcher,
+        item_selector=profile.item_selector,
+        link_selector=profile.link_selector,
+        title_selector=profile.title_selector,
+        title_selectors=profile.title_selectors,
+        date_selectors=profile.date_selectors,
+        date_formats=profile.date_formats,
+        category_selectors=profile.category_selectors,
+        allowed_url_prefixes=profile.allowed_url_prefixes,
+        excluded_url_substrings=profile.excluded_url_substrings,
+        max_links=profile.max_links,
+    )
+    validate_listing_articles(source_config.name, source_config.url, discovered_articles)
+    existing_fingerprints = existing_item_fingerprints(connection, [la.url for la in discovered_articles])
+    
+    articles = []
+    for listing_article in discovered_articles:
+        article_url = listing_article.url
+        if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
+            continue
+        record = _fetch_article(
+            connection, article_url, source_config.name, source_config.url, listing_article, profile,
+            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+        )
+        if record is None:
+            continue
+        articles.append(record)
+    return articles
+
+
+def _handle_api_tag_source(source_config, connection, raw_html_dir: str | Path = "data") -> list:
+    """Handle API tag sources (e.g., HuggingFace blog tags)."""
+    from reader.config import load_listing_profile
+    from reader.storage import existing_item_fingerprints, item_fingerprint
+    
+    profile = load_listing_profile(source_config.config_path)
+    tag = profile.api_tag or source_config.settings.get("tag") or source_config.name
+    discovered_articles = parse_huggingface_tag_articles(str(tag))
+    validate_listing_articles(source_config.name, source_config.url, discovered_articles)
+    existing_fingerprints = existing_item_fingerprints(connection, [la.url for la in discovered_articles])
+    
+    articles = []
+    for listing_article in discovered_articles:
+        article_url = listing_article.url
+        if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
+            continue
+        record = _fetch_article(
+            connection, article_url, source_config.name, source_config.url, listing_article, profile,
+            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+        )
+        if record is None:
+            continue
+        articles.append(record)
+    return articles
+
+
+def _handle_direct_source(source_config, connection, raw_html_dir: str | Path = "data") -> list:
+    """Handle direct URL sources: fetch a single article page."""
+    import logging
+    logger = logging.getLogger(__name__)
+    from reader.storage import log_ingestion_failure, save_raw_html
+    from reader.validation import validate_content
+    
+    articles = []
+    title, summary, content, author, raw_html = extract_article(source_config.url, fetcher=source_config.scraper)
+    quality = validate_content(title, content, source_config.url, source_config.name)
+    if not quality.is_valid:
+        log_ingestion_failure(connection, source_config.name, source_config.url, quality.reason or "unknown validation failure")
+        logger.warning("Skipping article %s from '%s': %s", source_config.url, source_config.name, quality.reason)
+        return articles
+    
+    raw_html_path = save_raw_html(raw_html, raw_html_dir, article_date=None)
+    articles.append(
+        ArticleRecord(
+            source_name=source_config.name,
+            source_url=source_config.url,
+            url=source_config.url,
+            title=title,
+            summary=summary,
+            content=content,
+            published_at=None,
+            source_scraper=source_config.scraper,
+            source_category=None,
+            category=None,
+            author=author,
+            raw_html_path=raw_html_path,
+        )
+    )
+    return articles
+
+
+def _fetch_article(
+    connection,
+    article_url: str,
+    source_name: str,
+    source_url: str,
+    listing_article,
+    profile: ListingSourceProfile | None,
+    *,
+    raw_html_dir: str | Path = "data",
+    source_scraper: str = "requests",
+) -> ArticleRecord | None:
+    """Fetch an article page, validate content quality, and return an ArticleRecord
+    or None if the article fails validation."""
+    if profile is not None:
+        title, summary, content, author, raw_html = extract_article(
+            article_url,
+            fetcher=profile.fetcher,
+            title_selector=profile.title_selector,
+            content_selectors=profile.content_selectors,
+            paragraph_selector=profile.paragraph_selector,
+        )
+        listing_summary = listing_article.summary
+    else:
+        title, summary, content, author, raw_html = extract_article(article_url, fetcher="requests")
+        listing_summary = summary
+
+    from reader.storage import log_ingestion_failure, save_raw_html
+    from reader.validation import validate_content
+    import logging
+    logger = logging.getLogger(__name__)
+
+    quality = validate_content(title, content, article_url, source_name)
+    if not quality.is_valid:
+        log_ingestion_failure(connection, source_name, article_url, quality.reason or "unknown validation failure")
+        logger.warning("Skipping article %s from '%s': %s", article_url, source_name, quality.reason)
+        return None
+
+    # Save raw HTML to file
+    published_at = listing_article.published_at if listing_article else None
+    raw_html_path = save_raw_html(raw_html, raw_html_dir, article_date=published_at)
+
+    source_category = listing_article.source_category if listing_article else None
+    return ArticleRecord(
+        source_name=source_name,
+        source_url=source_url,
+        url=article_url,
+        title=title,
+        summary=listing_summary or summary,
+        content=content,
+        published_at=published_at,
+        source_scraper=source_scraper,
+        source_category=source_category,
+        category=None,
+        author=author,
+        raw_html_path=raw_html_path,
+    )
+
+
+# Register handlers
+SOURCE_HANDLERS = {
+    "rss": _handle_rss_source,
+    "listing": _handle_listing_source,
+    "api_tag": _handle_api_tag_source,
+    "direct": _handle_direct_source,
+}
+
 
 def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
-    feedparser = _load_feedparser()
     parsed = feedparser.parse(source_url)
     articles: list[ArticleRecord] = []
     for entry in parsed.entries:
@@ -50,7 +252,6 @@ def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
 
 
 def parse_huggingface_tag_articles(tag: str) -> list[ListingArticle]:
-    requests = _load_requests()
     all_articles: list[ListingArticle] = []
     seen_links: set[str] = set()
     page = 0
@@ -432,22 +633,6 @@ def _normalize_url(value: str) -> str:
     return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, parts.query, ""))
 
 
-def _load_feedparser():
-    try:
-        import feedparser
-    except ModuleNotFoundError as exc:  # pragma: no cover - optional in tests.
-        raise RuntimeError("feedparser is required for RSS ingestion") from exc
-    return feedparser
-
-
-def _load_requests():
-    try:
-        import requests
-    except ModuleNotFoundError as exc:  # pragma: no cover - optional in tests.
-        raise RuntimeError("requests is required for scraping") from exc
-    return requests
-
-
 def _load_playwright_browser():
     try:
         from playwright.sync_api import sync_playwright
@@ -483,7 +668,6 @@ def _fetch_html(url: str, fetcher: str, timeout: int) -> str:
             browser.close()
             return html
 
-    requests = _load_requests()
     response = requests.get(url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})
     response.raise_for_status()
     return response.text

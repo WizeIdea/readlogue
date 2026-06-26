@@ -3,70 +3,11 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from reader.config import ListingSourceProfile, load_config, load_listing_profile
-from reader.scrapers import (
-    extract_article,
-    parse_rss_feed,
-    parse_huggingface_tag_articles,
-    parse_listing_articles,
-    validate_listing_articles,
-)
-from reader.storage import ArticleRecord, connect, existing_item_fingerprints, initialize, item_fingerprint, log_ingestion_failure, save_raw_html, upsert_article
-from reader.validation import validate_content
+from reader.config import load_config
+from reader.scrapers import SOURCE_HANDLERS
+from reader.storage import connect, initialize, upsert_article
 
 logger = logging.getLogger(__name__)
-
-
-def _fetch_article(
-    connection,
-    article_url: str,
-    source_name: str,
-    source_url: str,
-    listing_article,
-    profile: ListingSourceProfile | None,
-    *,
-    raw_html_dir: str | Path = "data",
-) -> ArticleRecord | None:
-    """Fetch an article page, validate content quality, and return an ArticleRecord
-    or None if the article fails validation."""
-    if profile is not None:
-        title, summary, content, author, raw_html = extract_article(
-            article_url,
-            fetcher=profile.fetcher,
-            title_selector=profile.title_selector,
-            content_selectors=profile.content_selectors,
-            paragraph_selector=profile.paragraph_selector,
-        )
-        listing_summary = listing_article.summary
-    else:
-        title, summary, content, author, raw_html = extract_article(article_url, fetcher="requests")
-        listing_summary = summary
-
-    quality = validate_content(title, content, article_url, source_name)
-    if not quality.is_valid:
-        log_ingestion_failure(connection, source_name, article_url, quality.reason or "unknown validation failure")
-        logger.warning("Skipping article %s from '%s': %s", article_url, source_name, quality.reason)
-        return None
-
-    # Save raw HTML to file
-    published_at = listing_article.published_at if listing_article else None
-    raw_html_path = save_raw_html(raw_html, raw_html_dir, article_date=published_at)
-
-    source_category = listing_article.source_category if listing_article else None
-    return ArticleRecord(
-        source_name=source_name,
-        source_url=source_url,
-        url=article_url,
-        title=title,
-        summary=listing_summary or summary,
-        content=content,
-        published_at=published_at,
-        source_scraper="placeholder",  # caller fixes this via object.__setattr__
-        source_category=source_category,
-        category=None,
-        author=author,
-        raw_html_path=raw_html_path,
-    )
 
 
 def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
@@ -79,109 +20,24 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
             if not source.enabled:
                 continue
 
-            if source.kind == "rss":
-                articles = []
-                raw_articles = parse_rss_feed(source.name, source.url)
-                for raw in raw_articles:
-                    # Fetch the full article page for complete content + raw HTML
-                    record = _fetch_article(connection, raw.url, source.name, source.url, None, None, raw_html_dir=raw_html_dir)
-                    if record is None:
-                        skipped_items += 1
-                        continue
-                    # Use RSS feed metadata as fallback if the scraper didn't find them
-                    object.__setattr__(record, "title", record.title or raw.title)
-                    object.__setattr__(record, "published_at", record.published_at or raw.published_at)
-                    object.__setattr__(record, "source_category", record.source_category or raw.source_category)
-                    object.__setattr__(record, "author", record.author or raw.author)
-                    object.__setattr__(record, "source_scraper", source.scraper)
-                    articles.append(record)
-            elif source.kind == "api_tag":
-                profile = load_listing_profile(source.config_path)
-                tag = profile.api_tag or source.settings.get("tag") or source.name
-                discovered_articles = parse_huggingface_tag_articles(str(tag))
-                validate_listing_articles(source.name, source.url, discovered_articles)
-                existing_fingerprints = existing_item_fingerprints(
-                    connection,
-                    [listing_article.url for listing_article in discovered_articles],
-                )
-                articles = []
-                for listing_article in discovered_articles:
-                    article_url = listing_article.url
-                    if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
-                        continue
-                    record = _fetch_article(connection, article_url, source.name, source.url, listing_article, profile, raw_html_dir=raw_html_dir)
-                    if record is None:
-                        skipped_items += 1
-                        continue
-                    article_record = record
-                    # preserve source_scraper from source config
-                    object.__setattr__(article_record, "source_scraper", source.scraper)
-                    articles.append(article_record)
-            elif source.kind == "listing":
-                profile = load_listing_profile(source.config_path)
-                discovered_articles = parse_listing_articles(
-                    source.url,
-                    fetcher=profile.fetcher,
-                    item_selector=profile.item_selector,
-                    link_selector=profile.link_selector,
-                    title_selector=profile.title_selector,
-                    title_selectors=profile.title_selectors,
-                    date_selectors=profile.date_selectors,
-                    date_formats=profile.date_formats,
-                    category_selectors=profile.category_selectors,
-                    allowed_url_prefixes=profile.allowed_url_prefixes,
-                    excluded_url_substrings=profile.excluded_url_substrings,
-                    max_links=profile.max_links,
-                )
-                validate_listing_articles(source.name, source.url, discovered_articles)
-                existing_fingerprints = existing_item_fingerprints(
-                    connection,
-                    [listing_article.url for listing_article in discovered_articles],
-                )
-                articles = []
-                for listing_article in discovered_articles:
-                    article_url = listing_article.url
-                    if article_url and article_url.strip() and item_fingerprint(article_url) in existing_fingerprints:
-                        continue
-                    record = _fetch_article(connection, article_url, source.name, source.url, listing_article, profile, raw_html_dir=raw_html_dir)
-                    if record is None:
-                        skipped_items += 1
-                        continue
-                    article_record = record
-                    object.__setattr__(article_record, "source_scraper", source.scraper)
-                    articles.append(article_record)
-            else:
-                title, summary, content, author, raw_html = extract_article(source.url, fetcher=source.scraper)
-                quality = validate_content(title, content, source.url, source.name)
-                if not quality.is_valid:
-                    log_ingestion_failure(connection, source.name, source.url, quality.reason or "unknown validation failure")
-                    logger.warning("Skipping article %s from '%s': %s", source.url, source.name, quality.reason)
-                    skipped_items += 1
-                    continue
-                raw_html_path = save_raw_html(raw_html, raw_html_dir, article_date=None)
-                articles = [
-                    ArticleRecord(
-                        source_name=source.name,
-                        source_url=source.url,
-                        url=source.url,
-                        title=title,
-                        summary=summary,
-                        content=content,
-                        published_at=None,
-                        source_scraper=source.scraper,
-                        source_category=None,
-                        category=None,
-                        author=author,
-                        raw_html_path=raw_html_path,
-                    )
-                ]
+            handler = SOURCE_HANDLERS.get(source.kind)
+            if handler is None:
+                logger.warning("Unknown source kind '%s' for source '%s', skipping", source.kind, source.name)
+                continue
+            try:
+                articles = handler(source, connection, raw_html_dir=raw_html_dir)
+            except Exception as exc:
+                logger.error("Failed to ingest source '%s': %s", source.name, exc)
+                skipped_items += 1
+                continue
+            skipped_items += len([a for a in articles if a is None])
+            articles = [a for a in articles if a is not None]
 
             for article in articles:
                 if article is not None and upsert_article(connection, article):
                     new_items += 1
         connection.commit()
 
-    total_attempted = new_items + skipped_items
     if skipped_items:
         logger.warning("Ingestion complete: %d new items, %d skipped due to content quality", new_items, skipped_items)
     else:

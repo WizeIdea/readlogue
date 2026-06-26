@@ -5,11 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-06-26
+
+### Added
+- Exception handling in the ingestion loop: if a source handler raises (e.g., HTTP 5xx, network timeout), the error is logged and ingestion continues with the next source instead of failing the entire run
+
+## [1.1.0] - 2026-06-26
+
+### Changed
+- `feedparser` and `requests` are now imported directly at the top of `scrapers.py` instead of through lazy loader functions (`_load_feedparser`, `_load_requests`) — removes unnecessary indirection for required dependencies
+
+## [1.0.0] - 2026-06-26
+
+### Changed
+- `source_scraper` is now passed as a parameter to `_fetch_article()` instead of being set to `"placeholder"` and patched via `object.__setattr__` — eliminates the hack in all four source-kind handlers
+
+## [0.9.0] - 2026-06-26
+
+### Removed
+- `src/reader/export.py` deleted — it was a thin wrapper with no logic of its own; `export_csv` and `export_jsonl` are now imported directly from `reader.storage`
+
+### Changed
+- `tests/test_export.py` updated to call `export_csv` and `export_jsonl` directly instead of going through the removed wrapper
+
+## [0.8.0] - 2026-06-26
+
+### Added
+- Source-kind registry pattern: `SOURCE_HANDLERS` dict in `scrapers.py` maps kind names to handler functions, replacing the `if/elif` chain in `ingest.py`
+- `_fetch_article()` helper moved from `ingest.py` to `scrapers.py` to break circular imports and co-locate scraping logic
+
+### Changed
+- `ingest.py` is now a thin orchestrator: loads config, iterates sources, dispatches to `SOURCE_HANDLERS[kind]`, and upserts results
+- Adding a new source kind now requires only a handler function and one line in the `SOURCE_HANDLERS` dict — no changes to the core ingestion loop
+- All per-kind discovery logic (RSS, listing, api_tag, direct) lives in `scrapers.py` alongside the parsers
+
 ## [0.7.0] - 2026-06-26
 
 ### Added
 - RSS sources now fetch the full article page for each feed entry, extracting complete content and saving raw HTML to the data repo — same treatment as listing and API tag sources
-- RSS metadata (title, published_at, source_category, author) from the feed is used as fallback when the scraped page doesn't provide those fields
+- RSS metadata (title, published_at, source_category, author) from the feed is used as fallback when the scraped page doesn't find them
 
 ### Changed
 - `parse_rss_feed()` return values are now used as metadata fallback rather than primary content; the actual content comes from `extract_article()` on the article page

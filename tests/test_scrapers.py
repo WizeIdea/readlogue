@@ -69,8 +69,8 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertEqual(articles[0].source_category, "Technical Research")
         self.assertEqual(articles[0].published_at, "2026-06-24T16:30:01+00:00")
 
-    @patch("reader.scrapers._load_requests")
-    def test_parse_huggingface_tag_articles_uses_api_tag_data(self, load_requests: Mock) -> None:
+    @patch("reader.scrapers.requests")
+    def test_parse_huggingface_tag_articles_uses_api_tag_data(self, requests_mock: Mock) -> None:
         response = Mock()
         response.json.return_value = {
             "allBlogs": [
@@ -85,7 +85,7 @@ class ScraperDiscoveryTests(unittest.TestCase):
             "numTotalItems": 1,
         }
         response.raise_for_status.return_value = None
-        load_requests.return_value.get.return_value = response
+        requests_mock.get.return_value = response
 
         articles = parse_huggingface_tag_articles("ethics")
 

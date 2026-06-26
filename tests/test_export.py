@@ -6,8 +6,7 @@ import tempfile
 from pathlib import Path
 import unittest
 
-from reader.export import export_datasets
-from reader.storage import ArticleRecord, connect, initialize, upsert_article
+from reader.storage import ArticleRecord, connect, export_csv, export_jsonl, initialize, upsert_article
 
 
 class ExportTests(unittest.TestCase):
@@ -31,9 +30,9 @@ class ExportTests(unittest.TestCase):
                         category="AI News",
                     ),
                 )
+                csv_path = export_csv(connection, temp_path / "exports" / "reader.csv")
+                jsonl_path = export_jsonl(connection, temp_path / "exports" / "reader.jsonl")
                 connection.commit()
-
-            csv_path, jsonl_path = export_datasets(database, temp_path / "exports")
 
             with csv_path.open(encoding="utf-8") as handle:
                 csv_rows = list(csv.DictReader(handle))

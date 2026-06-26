@@ -17,8 +17,8 @@ Readlogue is a Python RSS/news reader focused on preserving article data for fut
 - `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, exports, and raw HTML file storage.
 - `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` returns both cleaned Markdown content and raw HTML for ML pipelines.
 - `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
-- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival. RSS sources now fetch the full article page for each entry, not just the feed summary.
-- `src/reader/export.py` builds CSV and JSONL datasets.
+- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival. RSS sources now fetch the full article page for each entry, not just the feed summary. Uses a source-kind registry (`SOURCE_HANDLERS`) to dispatch to the appropriate handler without an `if/elif` chain.
+- CSV and JSONL export functions live in `src/reader/storage.py` (`export_csv`, `export_jsonl`).
 - `streamlit_app.py` is the UI entrypoint; displays a warning banner when the last ingestion skipped articles.
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually using a dual-repo checkout pattern.
 - Raw HTML is saved to `data/raw_html/YYYY-MM-DD/<uuid>.html` and committed to a separate data repository (`WizeIdea/readlogue_data_2026`) via `stefanzweifel/git-auto-commit-action`.
@@ -120,10 +120,16 @@ The ingestion pipeline must never overwrite the manual `category`, `read_at`, or
 
 ## Next steps
 
-1. Add real feed URLs to a local config file based on `config.example.yaml`.
-2. Add additional source profiles using the same listing-page metadata pattern.
-3. Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.
-4. Add a richer scraper fallback for harder article pages.
-5. Decide whether ingestion should run in a hosted environment, a local cron job, or only GitHub Actions.
-6. Add an operator checklist for initial backfill, validation, and recovery from broken pages.
-7. Add more robust monitoring for failed source fetches, parse failures, and empty ingests.
+1. ~~Add real feed URLs to a local config file based on `config.example.yaml`.~~ — 5 sources configured (Anthropic, BAIR, HuggingFace x2, Stanford HAI)
+2. ~~Add additional source profiles using the same listing-page metadata pattern.~~ — BAIR, HuggingFace, Stanford HAI profiles added
+3. ~~Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.~~ — 29 tests passing
+4. Enhance scraper fallback heuristics for harder article pages (e.g., Readability, boilerpipe-style extraction).
+5. ~~Decide whether ingestion should run in a hosted environment, a local cron job, or only GitHub Actions.~~ — GitHub Actions workflow configured
+6. ~~Add an operator checklist for initial backfill, validation, and recovery from broken pages.~~ — See "Backfill / recovery checklist" above
+7. ~~Add more robust monitoring for failed source fetches, parse failures, and empty ingests.~~ — Content validation + ingestion_log + exception handling implemented. Remaining enhancements: retry logic for transient failures, optional alerting.
+
+### New items
+
+8. Set up the data repo deploy key (SSH key) to activate the dual-repo raw HTML archival workflow.
+9. Consider adding a `raw_html_path` link in the Streamlit UI for quick access to the original HTML.
+10. Document the source-kind registry pattern (`SOURCE_HANDLERS`) in CONTRIBUTING.md for future contributors.
