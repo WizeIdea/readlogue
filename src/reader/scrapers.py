@@ -191,6 +191,11 @@ def _fetch_article(
 
     quality = validate_content(title, content, article_url, source_name)
     if not quality.is_valid:
+        # Log debug info to help diagnose extraction issues
+        logger.debug(
+            "Content extraction details for %s:\n  Title: %s\n  Content length: %d chars\n  Content preview: %s",
+            article_url, title, len(content), content[:200] if content else "(empty)"
+        )
         log_ingestion_failure(connection, source_name, article_url, quality.reason or "unknown validation failure")
         logger.warning("Skipping article %s from '%s': %s", article_url, source_name, quality.reason)
         return None
@@ -432,7 +437,20 @@ def extract_article(
     if content_selectors:
         content = _extract_content_from_selectors(soup, content_selectors)
     if not content:
+        # Try semantic HTML5 tags first
         content = _extract_content_from_selectors(soup, ("article", "main"))
+    if not content:
+        # Fallback to common modern web patterns (divs with content-related classes)
+        content = _extract_content_from_selectors(
+            soup,
+            (
+                "div[class*='content']",
+                "div[class*='article']",
+                "div[class*='post']",
+                "div[class*='body']",
+                "div[class*='entry']",
+            ),
+        )
     if not content:
         paragraphs = soup.select(paragraph_selector)
         if paragraphs:

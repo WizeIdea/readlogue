@@ -84,7 +84,9 @@ def validate_content(
         )
 
     # --- 2. HTML / markup residue --------------------------------------------
-    html_residue = bool(re.search(r"<[a-zA-Z/][^>]*>", content))
+    # Match actual HTML tags (must start with < or </) to avoid false positives
+    # from Markdown link syntax like [text](url)
+    html_residue = bool(re.search(r"</?[a-zA-Z][^>]*>", content))
     if html_residue:
         return ContentQuality(
             is_valid=False,

@@ -359,16 +359,20 @@ def save_raw_html(
 
     File is stored at:  *base_dir* / raw_html / YYYY-MM-DD / <uuid>.html
 
-    If *article_date* is ``None``, the current UTC date is used.
+    The folder date is always the ingestion date (current UTC date), not the
+    article's publication date. This ensures all articles ingested in a single
+    run are grouped together, regardless of when they were published.
+    
+    The *article_date* parameter is kept for backward compatibility but is not
+    used for the storage path.
+    
     The returned path is relative to *base_dir*.
     """
     base = Path(base_dir)
 
-    if article_date:
-        # article_date is an ISO string like "2026-06-26T16:30:01+00:00"
-        date_part = article_date[:10]
-    else:
-        date_part = utc_now()[:10]
+    # Always use ingestion date (current UTC) for folder structure
+    # This groups all articles from a single ingestion run together
+    date_part = utc_now()[:10]
 
     subdir = base / "raw_html" / date_part
     subdir.mkdir(parents=True, exist_ok=True)

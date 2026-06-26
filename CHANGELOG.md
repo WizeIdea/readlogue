@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.9] - 2026-06-27
+
+### Fixed
+- Raw HTML storage: changed `save_raw_html()` to use ingestion date (current UTC) instead of article publication date for folder structure, ensuring all articles from a single run are grouped together
+
+## [0.3.8] - 2026-06-27
+
+### Fixed
+- Config parsing: quoted CSS attribute selectors in `config/sources/stanford-hai-news.yaml` to prevent YAML from parsing square brackets as list syntax instead of CSS selector strings
+- Added debug logging for content extraction failures to help diagnose why articles are being skipped
+
+## [0.3.7] - 2026-06-27
+
+### Fixed
+- Content validation: fixed HTML residue regex false positive that incorrectly flagged Markdown link syntax `[text](url)` as HTML tags
+- Content extraction: added fallback selectors for modern web patterns (divs with content/article/post/body/entry classes) to better handle sites like Anthropic and DeepMind that don't use semantic `<article>` or `<main>` tags
+
+## [0.3.6] - 2026-06-27
+
+### Fixed
+- GitHub Actions workflow: removed stale reference to deleted `reader.export` module that caused ImportError on workflow execution
+
 ## [0.3.5] - 2026-06-26
 
 ### Added
