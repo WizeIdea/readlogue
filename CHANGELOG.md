@@ -5,22 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.0] - 2026-06-26
+## [0.3.5] - 2026-06-26
 
 ### Added
 - Exception handling in the ingestion loop: if a source handler raises (e.g., HTTP 5xx, network timeout), the error is logged and ingestion continues with the next source instead of failing the entire run
 
-## [1.1.0] - 2026-06-26
+## [0.3.4] - 2026-06-26
 
 ### Changed
 - `feedparser` and `requests` are now imported directly at the top of `scrapers.py` instead of through lazy loader functions (`_load_feedparser`, `_load_requests`) — removes unnecessary indirection for required dependencies
 
-## [1.0.0] - 2026-06-26
+## [0.3.3] - 2026-06-26
 
 ### Changed
 - `source_scraper` is now passed as a parameter to `_fetch_article()` instead of being set to `"placeholder"` and patched via `object.__setattr__` — eliminates the hack in all four source-kind handlers
 
-## [0.9.0] - 2026-06-26
+## [0.3.2] - 2026-06-26
 
 ### Removed
 - `src/reader/export.py` deleted — it was a thin wrapper with no logic of its own; `export_csv` and `export_jsonl` are now imported directly from `reader.storage`
@@ -28,7 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - `tests/test_export.py` updated to call `export_csv` and `export_jsonl` directly instead of going through the removed wrapper
 
-## [0.8.0] - 2026-06-26
+## [0.3.1] - 2026-06-26
 
 ### Added
 - Source-kind registry pattern: `SOURCE_HANDLERS` dict in `scrapers.py` maps kind names to handler functions, replacing the `if/elif` chain in `ingest.py`
@@ -39,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adding a new source kind now requires only a handler function and one line in the `SOURCE_HANDLERS` dict — no changes to the core ingestion loop
 - All per-kind discovery logic (RSS, listing, api_tag, direct) lives in `scrapers.py` alongside the parsers
 
-## [0.7.0] - 2026-06-26
+## [0.3.0] - 2026-06-26
 
 ### Added
 - RSS sources now fetch the full article page for each feed entry, extracting complete content and saving raw HTML to the data repo — same treatment as listing and API tag sources
@@ -49,7 +49,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `parse_rss_feed()` return values are now used as metadata fallback rather than primary content; the actual content comes from `extract_article()` on the article page
 - All source kinds (RSS, listing, api_tag, direct) now consistently produce Markdown content and raw HTML files
 
-## [0.6.0] - 2026-06-26
+## [0.2.2] - 2026-06-26
 
 ### Added
 - Markdown conversion: extracted article content is now converted from HTML to Markdown via `html2text`, preserving structural signal (headings, bold, links, lists, code) for ML training
@@ -62,7 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fallback paragraph extraction also converts to Markdown by wrapping `<p>` elements in a `<div>` before conversion
 - `items.content` and `items.summary` now contain Markdown-formatted text rather than plain text
 
-## [0.5.0] - 2026-06-26
+## [0.2.1] - 2026-06-26
 
 ### Added
 - Raw HTML storage: `extract_article()` now returns the raw HTML as a 5th element, which is saved to `data/raw_html/YYYY-MM-DD/<uuid>.html` via `save_raw_html()`
@@ -78,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `upsert_article()` persists `raw_html_path` on insert and preserves existing paths on update
 - `.github/workflows/ingest.yml` now uses dual-checkout pattern with data-repo deploy key
 
-## [0.4.0] - 2026-06-26
+## [0.2.0] - 2026-06-26
 
 ### Added
 - Content validation module (`src/reader/validation.py`) with three quality checks:
@@ -95,7 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - All article extraction paths (RSS, API tag, listing, and direct) now pass through `validate_content()`
 - `_fetch_article()` helper refactored to accept `source_url` parameter explicitly
 
-## [0.3.0] - 2026-06-26
+## [0.1.2] - 2026-06-26
 
 ### Added
 - Schema versioning system with `schema_version` table and migration support (`SCHEMA_VERSION = 1`)
@@ -107,7 +107,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `initialize()` now runs migrations against a version-tracked schema rather than ad-hoc column checks
 - `_ensure_column()` now operates on an open connection instead of opening its own
 
-## [0.2.0] - 2026-06-26
+## [0.1.1] - 2026-06-26
 
 ### Added
 - GitHub Actions ingest workflow (`.github/workflows/ingest.yml`)

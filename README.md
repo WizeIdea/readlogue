@@ -1,6 +1,30 @@
-# Readlogue
+# ReadLogue
 
-Readlogue is a Python RSS/news reader focused on preserving article data for future ML work.
+Licensed under the [Apache License, Version 2.0](LICENSE).
+
+**ReadLogue** is a modular, automated research pipeline designed to aggregate, curate, and persist technical literature from diverse sources—including those without native RSS feeds. 
+
+Unlike traditional RSS readers that prioritize consumption, ReadLogue is built as a **Data Ingestion Pipeline**, designed to serve as a persistent, research-grade corpus for downstream AI implementation.
+
+## The "Why": Architectural Philosophy
+In the age of AI, information overload is a technical problem, not just a lifestyle one. ReadLogue was built to solve the "RSS Bottleneck" and prepare for Machine Learning efficiencies.
+
+*   **Hybrid Ingestion:** Combines efficient feed-parsing (`feedparser`) with resilient site-scraping (`newspaper4k`) to create a single, unified data stream.
+*   **Decoupled Storage:** We separate the **index** (SQLite) from the **raw data** (HTML/Markdown stored in a separate data repository). This ensures the core application remains lightweight and fast, while the "Data Lake" scales independently.
+*   **Researcher-First Design:** By persisting raw HTML/Markdown in a version-controlled, date-nested file structure, ReadLogue builds a "Ground Truth" dataset. This allows for reproducible experimentation, feature engineering, and training for future Deep Learning models.
+*   **Zero-Cost Infrastructure:** Built entirely on GitHub Actions, GitHub Pages, and SQLite, providing a permanent, serverless research environment.
+
+## Data Pipeline
+1.  **Ingest:** GitHub Actions execute the Python pipeline daily, fetching content from configured URLs.
+2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) to ensure filesystem performance.
+3.  **Index:** Metadata and labels (Read status, Rating, Category) are indexed in a local SQLite database, allowing for complex querying.
+4.  **Visualize:** A Streamlit-based UI serves as the curation layer, allowing manual tagging and classification—the critical "labeling" step for future ML pipelines.
+
+## Intended Outcomes
+ReadLogue is designed to evolve with future ML projects:
+*   **Short-term:** A low-friction, dashboard for managing technical reading.
+*   **Mid-term:** A labeled, high-quality corpus for training custom classification models (Naive Bayes, Logistic Regression, and Neural Networks).
+*   **Long-term:** An automated "Research Assistant" that uses Vector Search and RAG to surface information based on historical interests.
 
 ## Goals
 
