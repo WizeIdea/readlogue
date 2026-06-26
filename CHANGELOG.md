@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2026-06-26
+
+### Added
+- Markdown conversion: extracted article content is now converted from HTML to Markdown via `html2text`, preserving structural signal (headings, bold, links, lists, code) for ML training
+- `html2text>=2024.2` added to project dependencies
+- `_html_to_markdown()` helper in `scrapers.py` with sensible defaults (links/images preserved, no line wrapping)
+- Streamlit UI now renders article summaries as Markdown via `st.markdown()` for proper heading/link display
+
+### Changed
+- `_extract_content_from_selectors()` now converts selected HTML nodes to Markdown instead of stripping to plain text
+- Fallback paragraph extraction also converts to Markdown by wrapping `<p>` elements in a `<div>` before conversion
+- `items.content` and `items.summary` now contain Markdown-formatted text rather than plain text
+
 ## [0.5.0] - 2026-06-26
 
 ### Added

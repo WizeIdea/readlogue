@@ -232,8 +232,11 @@ def extract_article(
     if not content:
         content = _extract_content_from_selectors(soup, ("article", "main"))
     if not content:
-        paragraphs = [paragraph.get_text(" ", strip=True) for paragraph in soup.select(paragraph_selector)]
-        content = "\n\n".join(paragraphs).strip()
+        paragraphs = soup.select(paragraph_selector)
+        if paragraphs:
+            # Wrap paragraphs in a <div> and convert to Markdown
+            paragraph_html = "<div>" + "".join(str(p) for p in paragraphs) + "</div>"
+            content = _html_to_markdown(paragraph_html)
 
     summary = content[:500]
     author = _first_meta_content(soup, "author")
@@ -374,10 +377,20 @@ def _extract_content_from_selectors(soup: BeautifulSoup, selectors: tuple[str, .
         node = soup.select_one(selector)
         if not node:
             continue
-        text = node.get_text(" ", strip=True)
-        if text:
-            return text
+        html = str(node)
+        markdown = _html_to_markdown(html)
+        if markdown:
+            return markdown
     return ""
+
+
+def _html_to_markdown(html: str) -> str:
+    """Convert HTML to Markdown using html2text."""
+    converter = _load_html2text()
+    converter.ignore_links = False
+    converter.ignore_images = False
+    converter.body_width = 0  # don't wrap lines
+    return converter.handle(html).strip()
 
 
 def _discover_listing_links_from_soup(
@@ -448,6 +461,14 @@ def _load_beautifulsoup():
     except ModuleNotFoundError as exc:  # pragma: no cover - optional in tests.
         raise RuntimeError("beautifulsoup4 is required for scraping") from exc
     return BeautifulSoup
+
+
+def _load_html2text():
+    try:
+        import html2text
+    except ModuleNotFoundError as exc:  # pragma: no cover - optional in tests.
+        raise RuntimeError("html2text is required for Markdown conversion") from exc
+    return html2text.HTML2Text()
 
 
 def _fetch_html(url: str, fetcher: str, timeout: int) -> str:

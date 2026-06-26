@@ -81,7 +81,7 @@ for item in items:
         st.subheader(item["title"])
         st.caption(f"{item['source_name']} · {item['url']}")
         if item["summary"]:
-            st.write(item["summary"])
+            st.markdown(item["summary"])
         st.write(f"Status: {'Read' if item['read_at'] else 'Unread'}")
         st.write(f"Rating: {item['rating'] or 'None'}")
         st.write(f"Source category: {item['source_category'] or 'Unknown'}")
