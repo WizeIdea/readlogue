@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from reader.scrapers import (
+    _extract_content_from_selectors,
     discover_listing_links_from_html,
     parse_huggingface_tag_articles,
     parse_listing_articles,
@@ -94,6 +95,50 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertEqual(articles[0].source_category, "Ethics")
         self.assertEqual(articles[0].published_at, "2026-06-24T12:00:00+00:00")
         self.assertEqual(articles[0].url, "https://huggingface.co/blog/hf-ethics-post")
+
+    @patch("reader.scrapers.requests")
+    def test_parse_huggingface_tag_articles_stops_on_duplicate_page(self, requests_mock: Mock) -> None:
+        blog = {
+            "title": "HF Ethics Post",
+            "url": "/blog/hf-ethics-post",
+            "publishedAt": "2026-06-24T12:00:00Z",
+            "tags": ["Ethics"],
+            "description": "Ethics-focused post",
+        }
+        response = Mock()
+        response.json.return_value = {
+            "allBlogs": [blog],
+            "numTotalItems": 22,
+        }
+        response.raise_for_status.return_value = None
+        requests_mock.get.return_value = response
+
+        articles = parse_huggingface_tag_articles("ethics")
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(requests_mock.get.call_count, 2)
+
+    def test_extract_content_from_selectors_prefers_longest_node(self) -> None:
+        from bs4 import BeautifulSoup
+
+        html = """
+        <html>
+          <body>
+            <article><p>Short teaser card.</p></article>
+            <main>
+              <p>This is the full article body with substantially more content.</p>
+              <p>It includes multiple paragraphs of real article text for extraction.</p>
+              <p>Additional paragraphs ensure the main region is clearly the richest node.</p>
+            </main>
+          </body>
+        </html>
+        """
+        soup = BeautifulSoup(html, "html.parser")
+        content = _extract_content_from_selectors(soup, ("article", "main"))
+
+        self.assertIn("full article body", content)
+        self.assertNotIn("Short teaser card", content)
+        self.assertGreater(len(content.split()), 10)
 
 
 if __name__ == "__main__":

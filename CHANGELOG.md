@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-06-27
+
+### Fixed
+- Content extraction: `_extract_content_from_selectors()` now picks the selector node with the most text instead of the first match, fixing DeepMind and similar sites where a small `<article>` teaser was chosen over `<main>`
+- Anthropic sources: switched listing profiles from Playwright to `requests` because Anthropic pages are server-rendered; fixes empty listing discovery and ~47-word partial article bodies in GitHub Actions
+- Content validation: reduced HTML residue false positives by ignoring Markdown inline code, angle-bracket URLs (`<https://...>`), and PascalCase pseudo-tags like `<Parallel>`
+- HuggingFace API ingestion: stop pagination when a page returns no new URLs and cap pages at 10, preventing infinite loops that caused 429 errors
+- BAIR blog: exclude `/blog/subscribe` (without trailing slash) from listing discovery
+
 ## [0.3.9] - 2026-06-27
 
 ### Fixed

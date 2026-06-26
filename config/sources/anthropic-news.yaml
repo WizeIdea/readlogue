@@ -1,4 +1,4 @@
-fetcher: playwright
+fetcher: requests
 item_selector: a[href*="/news/"]
 link_selector: a[href*="/news/"]
 allowed_url_prefixes:

@@ -84,9 +84,7 @@ def validate_content(
         )
 
     # --- 2. HTML / markup residue --------------------------------------------
-    # Match actual HTML tags (must start with < or </) to avoid false positives
-    # from Markdown link syntax like [text](url)
-    html_residue = bool(re.search(r"</?[a-zA-Z][^>]*>", content))
+    html_residue = _has_html_residue(content)
     if html_residue:
         return ContentQuality(
             is_valid=False,
@@ -112,3 +110,16 @@ def validate_content(
         )
 
     return ContentQuality(is_valid=True, word_count=word_count)
+
+
+def _has_html_residue(content: str) -> bool:
+    """Detect unescaped HTML tags while ignoring common false positives."""
+    sanitized = re.sub(r"`[^`]*`", "", content)
+    sanitized = re.sub(r"<https?://[^>]+>", "", sanitized)
+
+    for match in re.finditer(r"</?([a-zA-Z][a-zA-Z0-9]*)[^>]*>", sanitized):
+        tag_name = match.group(1)
+        if tag_name[0].isupper():
+            continue
+        return True
+    return False

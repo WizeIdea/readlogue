@@ -90,6 +90,27 @@ class ValidateContentTests(unittest.TestCase):
         quality = validate_content("Title", text, "https://example.com/a", "test-source")
         self.assertTrue(quality.is_valid)
 
+    def test_inline_code_pseudo_tags_pass(self) -> None:
+        text = _diverse_text(60) + " They use trainable control tokens (`<think_i>`) in the model."
+        quality = validate_content("Title", text, "https://example.com/a", "test-source")
+        self.assertTrue(quality.is_valid)
+
+    def test_angle_bracket_urls_pass(self) -> None:
+        text = _diverse_text(60) + " See <https://example.com> for details."
+        quality = validate_content("Title", text, "https://example.com/a", "test-source")
+        self.assertTrue(quality.is_valid)
+
+    def test_pascal_case_notation_passes(self) -> None:
+        text = _diverse_text(60) + " The <Parallel> operator coordinates independent subtasks."
+        quality = validate_content("Title", text, "https://example.com/a", "test-source")
+        self.assertTrue(quality.is_valid)
+
+    def test_real_html_residue_still_fails(self) -> None:
+        text = _diverse_text(60) + ' <div class="content">more text</div>'
+        quality = validate_content("Title", text, "https://example.com/a", "test-source")
+        self.assertFalse(quality.is_valid)
+        self.assertTrue(quality.html_residue)
+
 
 if __name__ == "__main__":
     unittest.main()

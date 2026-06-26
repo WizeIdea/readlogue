@@ -1,4 +1,4 @@
-fetcher: playwright
+fetcher: requests
 item_selector: a[href*="/engineering/"]
 link_selector: a[href*="/engineering/"]
 allowed_url_prefixes:

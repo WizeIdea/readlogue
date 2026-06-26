@@ -256,12 +256,12 @@ def parse_rss_feed(source_name: str, source_url: str) -> list[ArticleRecord]:
     return articles
 
 
-def parse_huggingface_tag_articles(tag: str) -> list[ListingArticle]:
+def parse_huggingface_tag_articles(tag: str, *, max_pages: int = 10) -> list[ListingArticle]:
     all_articles: list[ListingArticle] = []
     seen_links: set[str] = set()
     page = 0
 
-    while True:
+    while page < max_pages:
         response = requests.get(HF_API_URL, params={"tag": tag, "page": page}, timeout=15, headers={"User-Agent": "reader/0.1.0"})
         response.raise_for_status()
         payload = response.json()
@@ -269,6 +269,7 @@ def parse_huggingface_tag_articles(tag: str) -> list[ListingArticle]:
         if not blogs:
             break
 
+        new_on_page = 0
         for blog in blogs:
             title = _clean_text(blog.get("title"))
             if not title:
@@ -280,6 +281,7 @@ def parse_huggingface_tag_articles(tag: str) -> list[ListingArticle]:
                 continue
 
             seen_links.add(link)
+            new_on_page += 1
             published_at = _parse_iso_date(str(blog.get("publishedAt") or ""))
             tags = [
                 _clean_text(tag_value)
@@ -301,6 +303,9 @@ def parse_huggingface_tag_articles(tag: str) -> list[ListingArticle]:
                     author=_clean_text(blog.get("author")) or None,
                 )
             )
+
+        if new_on_page == 0:
+            break
 
         total = payload.get("numTotalItems")
         if total is not None and len(seen_links) >= int(total):
@@ -591,17 +596,25 @@ def _looks_like_date(text: str) -> bool:
 
 
 def _extract_content_from_selectors(soup: BeautifulSoup, selectors: tuple[str, ...]) -> str:
+    best_node = None
+    best_length = 0
+
     for selector in selectors:
         if not selector:
             continue
         node = soup.select_one(selector)
         if not node:
             continue
-        html = str(node)
-        markdown = _html_to_markdown(html)
-        if markdown:
-            return markdown
-    return ""
+        text_length = len(node.get_text(" ", strip=True))
+        if text_length > best_length:
+            best_length = text_length
+            best_node = node
+
+    if best_node is None:
+        return ""
+
+    markdown = _html_to_markdown(str(best_node))
+    return markdown
 
 
 def _html_to_markdown(html: str) -> str:
