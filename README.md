@@ -126,14 +126,14 @@ Create a user in **Supabase → Authentication → Users** (email/password), the
 
 ### Dashboard
 
-The home page lists ingested articles from the `items` table:
+The home page lists ingested articles from the `items` table (max width `96rem` / ~1536px on large screens):
 
 - **25 articles per page** — numbered page links (1, 2, 3 …) plus Previous / Next
 - **Unread first**, then newest by publication date (or ingest date); marking read moves the row down on refresh
 - **Compact two-column rows:**
   - **Left:** hero image, source line (e.g. `bair-blog` or `stanford-hai-news · Shana Lynch`), then icon controls
   - **Right:** title (links to the original article in a new tab) and summary (always visible)
-- **Read vs unread:** unread rows keep the default card style; read rows blend with the page background and use a muted title (no Read/Unread label)
+- **Read vs unread:** unread rows use the default card style; read rows use a flat page background, muted title, and a visible border (no Read/Unread label)
 
 ### Curation
 
@@ -141,7 +141,7 @@ Curation is the primary purpose of the UI — labels feed planned ML training:
 
 | Control | Database field | Values |
 |---------|----------------|--------|
-| Thumbs up / down | `rating` | `like`, `dislike` |
+| Thumbs up / down (toggle) | `rating` | `like`, `dislike`, or `null` — click the active thumb again to clear |
 | Mail / open-mail icons | `read_at` | ISO timestamp or `null` |
 | Category dropdown (under image) | `category` | From [`config.example.yaml`](config.example.yaml) list (mirrored in `apps/web/src/lib/categories.ts`) |
 
