@@ -45,6 +45,26 @@ def _clear_sqlite_state(connection: sqlite3.Connection) -> None:
     connection.execute("delete from sources")
 
 
+def fetch_runtime_ignores() -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """Load UI-managed ignore rules from Supabase."""
+    if not is_supabase_configured():
+        return (), ()
+
+    rows = _fetch_all("ignored_urls", "kind,value")
+    exact_urls: list[str] = []
+    substrings: list[str] = []
+    for row in rows:
+        kind = str(row.get("kind", "")).strip()
+        value = str(row.get("value", "")).strip()
+        if not value:
+            continue
+        if kind == "exact":
+            exact_urls.append(value)
+        elif kind == "substring":
+            substrings.append(value)
+    return tuple(exact_urls), tuple(substrings)
+
+
 def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
     """Load production state from Supabase into the ephemeral scratch SQLite DB."""
     if not is_supabase_configured():
@@ -77,8 +97,8 @@ def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
             insert into items(
                 id, source_id, fingerprint, url, title, summary, content, author,
                 published_at, source_category, category, read_at, rating,
-                raw_html_path, created_at, updated_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                raw_html_path, hero_image_url, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item["id"],
@@ -95,6 +115,7 @@ def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
                 item.get("read_at"),
                 item.get("rating"),
                 item.get("raw_html_path"),
+                item.get("hero_image_url"),
                 item["created_at"],
                 item["updated_at"],
             ),
@@ -195,6 +216,7 @@ def sync_sqlite_to_supabase(connection: sqlite3.Connection) -> None:
                 "read_at": row["read_at"],
                 "rating": row["rating"],
                 "raw_html_path": row["raw_html_path"],
+                "hero_image_url": row["hero_image_url"],
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
             },

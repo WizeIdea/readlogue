@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 
 def utc_now() -> str:
@@ -101,6 +101,7 @@ class ArticleRecord:
     category: str | None = None
     author: str | None = None
     raw_html_path: str | None = None
+    hero_image_url: str | None = None
 
 
 @contextmanager
@@ -184,6 +185,7 @@ def _run_migrations(connection: sqlite3.Connection) -> None:
         (1, "items", "category", "text"),
         (1, "items", "source_category", "text"),
         (2, "items", "raw_html_path", "text"),
+        (4, "items", "hero_image_url", "text"),
     ]
 
     for version, table_name, column_name, column_def in migrations:
@@ -308,8 +310,8 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             """
             insert into items(
                 source_id, fingerprint, url, title, summary, content, author, published_at,
-                source_category, category, raw_html_path, created_at, updated_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                source_category, category, raw_html_path, hero_image_url, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 source_id,
@@ -323,6 +325,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
                 article.source_category,
                 article.category,
                 article.raw_html_path,
+                article.hero_image_url,
                 utc_now(),
                 utc_now(),
             ),
@@ -341,6 +344,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             source_category = coalesce(nullif(?, ''), source_category),
             category = coalesce(category, nullif(?, '')),
             raw_html_path = coalesce(nullif(raw_html_path, ''), nullif(?, '')),
+            hero_image_url = coalesce(nullif(hero_image_url, ''), nullif(?, '')),
             updated_at = ?
         where fingerprint = ?
         """,
@@ -353,6 +357,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             article.source_category,
             article.category,
             article.raw_html_path,
+            article.hero_image_url,
             utc_now(),
             fingerprint,
         ),

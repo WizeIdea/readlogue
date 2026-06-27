@@ -6,7 +6,12 @@ from pathlib import Path
 from reader.config import load_config
 from reader.scrapers import SOURCE_HANDLERS, build_url_ignore_checker
 from reader.storage import IngestStats, connect, initialize, known_failed_fingerprints, upsert_article
-from reader.supabase_sync import hydrate_sqlite_from_supabase, is_supabase_configured, sync_sqlite_to_supabase
+from reader.supabase_sync import (
+    fetch_runtime_ignores,
+    hydrate_sqlite_from_supabase,
+    is_supabase_configured,
+    sync_sqlite_to_supabase,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +29,7 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
             connection,
             min_failures=config.auto_skip_failure_threshold,
         )
+        remote_ignored_urls, remote_ignored_substrings = fetch_runtime_ignores()
         for source in config.sources:
             if not source.enabled:
                 continue
@@ -35,8 +41,10 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
             try:
                 url_is_ignored = build_url_ignore_checker(
                     ignored_urls=config.ignored_urls
+                    + remote_ignored_urls
                     + tuple(str(value) for value in source.settings.get("ignored_urls", [])),
                     ignored_url_substrings=config.ignored_url_substrings
+                    + remote_ignored_substrings
                     + tuple(str(value) for value in source.settings.get("ignored_url_substrings", [])),
                 )
                 articles = handler(

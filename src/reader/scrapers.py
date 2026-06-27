@@ -328,7 +328,7 @@ def _handle_direct_source(
     articles = []
     if stats is not None:
         stats.fetched += 1
-    title, summary, content, author, raw_html = extract_article(source_config.url, fetcher=source_config.scraper)
+    title, summary, content, author, raw_html, hero_image_url = extract_article(source_config.url, fetcher=source_config.scraper)
     quality = validate_content(title, content, source_config.url, source_config.name)
     if not quality.is_valid:
         if stats is not None:
@@ -358,6 +358,7 @@ def _handle_direct_source(
             category=None,
             author=author,
             raw_html_path=raw_html_path,
+            hero_image_url=hero_image_url,
         )
     )
     return articles
@@ -387,7 +388,7 @@ def _fetch_article(
         stats.fetched += 1
 
     if profile is not None:
-        title, summary, content, author, raw_html = extract_article(
+        title, summary, content, author, raw_html, hero_image_url = extract_article(
             article_url,
             fetcher=profile.fetcher,
             title_selector=profile.title_selector,
@@ -396,7 +397,7 @@ def _fetch_article(
         )
         listing_summary = listing_article.summary
     else:
-        title, summary, content, author, raw_html = extract_article(article_url, fetcher=fetcher)
+        title, summary, content, author, raw_html, hero_image_url = extract_article(article_url, fetcher=fetcher)
         listing_summary = summary
 
     from reader.storage import log_ingestion_failure, resolve_raw_html_path
@@ -448,6 +449,7 @@ def _fetch_article(
         category=None,
         author=author,
         raw_html_path=raw_html_path,
+        hero_image_url=hero_image_url,
     )
 
 
@@ -659,10 +661,11 @@ def extract_article(
     content_selectors: tuple[str, ...] = (),
     paragraph_selector: str = "article p, main p, p",
     timeout: int = 15,
-) -> tuple[str, str, str | None, str | None, str]:
-    """Fetch *url*, parse it, and return (title, summary, content, author, raw_html).
+) -> tuple[str, str, str | None, str | None, str, str | None]:
+    """Fetch *url*, parse it, and return (title, summary, content, author, raw_html, hero_image_url).
 
-    The last element is the raw HTML fetched from the page, saved for ML pipelines.
+    *raw_html* is the page HTML saved for ML pipelines. *hero_image_url* is an absolute
+    image URL from Open Graph / Twitter meta tags when available.
     """
     BeautifulSoup = _load_beautifulsoup()
     html = _fetch_html(url, fetcher=fetcher, timeout=timeout)
@@ -672,7 +675,7 @@ def extract_article(
     body = soup.find("body")
     if fetcher == "requests" and body is not None and len(body.get_text(" ", strip=True)) < 20:
         author = _first_meta_content(soup, "author")
-        return title, "", "", author, html
+        return title, "", "", author, html, None
 
     content = ""
     if content_selectors:
@@ -701,7 +704,8 @@ def extract_article(
 
     summary = content[:500]
     author = _first_meta_content(soup, "author")
-    return title, summary, content, author, html
+    hero_image_url = _extract_hero_image_url(soup, url)
+    return title, summary, content, author, html, hero_image_url
 
 
 def _first_text(soup: BeautifulSoup, selectors: list[str]) -> str:
@@ -737,6 +741,35 @@ def _first_meta_content(soup: BeautifulSoup, name: str) -> str | None:
     meta = soup.select_one(f'meta[name="{name}"]')
     if meta and meta.get("content"):
         return str(meta["content"]).strip() or None
+    return None
+
+
+def _extract_hero_image_url(soup: BeautifulSoup, page_url: str) -> str | None:
+    candidates: list[str] = []
+    for selector, attribute in (
+        ('meta[property="og:image"]', "content"),
+        ('meta[property="og:image:url"]', "content"),
+        ('meta[property="og:image:secure_url"]', "content"),
+        ('meta[name="twitter:image"]', "content"),
+        ('meta[name="twitter:image:src"]', "content"),
+        ('link[rel="image_src"]', "href"),
+    ):
+        element = soup.select_one(selector)
+        if element and element.get(attribute):
+            candidates.append(str(element[attribute]).strip())
+
+    for image in soup.select("article img[src], main img[src]"):
+        src = image.get("src")
+        if src and not str(src).startswith("data:"):
+            candidates.append(str(src).strip())
+            break
+
+    for candidate in candidates:
+        if not candidate:
+            continue
+        absolute = urljoin(page_url, candidate)
+        if absolute.startswith("http"):
+            return absolute
     return None
 
 

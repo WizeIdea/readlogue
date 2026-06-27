@@ -7,7 +7,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 from reader.storage import ArticleRecord, connect, initialize, upsert_article
-from reader.supabase_sync import hydrate_sqlite_from_supabase, is_supabase_configured, sync_sqlite_to_supabase
+from reader.supabase_sync import (
+    fetch_runtime_ignores,
+    hydrate_sqlite_from_supabase,
+    is_supabase_configured,
+    sync_sqlite_to_supabase,
+)
 
 
 class SupabaseConfigTests(unittest.TestCase):
@@ -65,6 +70,7 @@ class SupabaseSyncTests(unittest.TestCase):
                     "read_at": None,
                     "rating": None,
                     "raw_html_path": "raw_html/2026-06-27/file.html",
+                    "hero_image_url": "https://example.com/hero.jpg",
                     "created_at": "2026-06-27T00:00:00+00:00",
                     "updated_at": "2026-06-27T00:00:00+00:00",
                 }
@@ -116,3 +122,20 @@ class SupabaseSyncTests(unittest.TestCase):
 
         client.table.assert_any_call("items")
         table.upsert.assert_called()
+
+    @patch("reader.supabase_sync._fetch_all")
+    @patch("reader.supabase_sync.is_supabase_configured", return_value=True)
+    def test_fetch_runtime_ignores_splits_kinds(self, _configured: MagicMock, fetch_all: MagicMock) -> None:
+        fetch_all.return_value = [
+            {"kind": "exact", "value": "https://example.com/skip"},
+            {"kind": "substring", "value": "bad-article"},
+        ]
+        exact, substrings = fetch_runtime_ignores()
+        self.assertEqual(exact, ("https://example.com/skip",))
+        self.assertEqual(substrings, ("bad-article",))
+
+    @patch("reader.supabase_sync.is_supabase_configured", return_value=False)
+    def test_fetch_runtime_ignores_empty_when_unconfigured(self, _configured: MagicMock) -> None:
+        exact, substrings = fetch_runtime_ignores()
+        self.assertEqual(exact, ())
+        self.assertEqual(substrings, ())

@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-27
+
+### Added
+- Supabase migrations `002`–`004`: authenticated read RLS policies, `ignored_urls` table, `hero_image_url` column on `items`
+- `hero_image_url` on ingested items — extracted from Open Graph / Twitter meta tags during article fetch (SQLite schema v4)
+- `_extract_hero_image_url()` in `scrapers.py`; `extract_article()` now returns a 6-tuple including the image URL
+- `fetch_runtime_ignores()` in `supabase_sync.py` — loads UI-managed ignore rules from Supabase `ignored_urls`
+- Tests for hero image extraction and runtime ignore fetch
+
+### Changed
+- Ingest merges YAML `ignored_urls` / `ignored_url_substrings` with Supabase `ignored_urls` when Supabase is configured
+- `supabase_sync` hydrate/sync includes `hero_image_url`
+- [`supabase/README.md`](supabase/README.md) documents migrations 002–004 and Phase 2 schema additions
+
 ## [1.0.0] - 2026-06-27
 
 ### Added

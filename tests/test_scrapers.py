@@ -5,6 +5,7 @@ from unittest.mock import Mock, patch
 
 from reader.scrapers import (
     _extract_content_from_selectors,
+    _extract_hero_image_url,
     _strip_embed_markup,
     build_url_ignore_checker,
     discover_listing_links_from_html,
@@ -218,6 +219,26 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(articles), 2)
         self.assertEqual(articles[0].url, "https://example.com/post-0")
         self.assertEqual(articles[1].url, "https://example.com/post-1")
+
+
+class HeroImageExtractionTests(unittest.TestCase):
+    def test_extract_hero_image_url_prefers_open_graph(self) -> None:
+        from reader.scrapers import _load_beautifulsoup
+
+        soup = _load_beautifulsoup()(
+            """
+            <html>
+              <head>
+                <meta property="og:image" content="/images/hero.png" />
+              </head>
+            </html>
+            """,
+            "html.parser",
+        )
+        self.assertEqual(
+            _extract_hero_image_url(soup, "https://example.com/article"),
+            "https://example.com/images/hero.png",
+        )
 
 
 class UrlIgnoreCheckerTests(unittest.TestCase):
