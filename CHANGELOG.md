@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-06-27
+
+### Added
+- Per-source content cleaners: `ContentCleanRules` in source YAML (`content_clean.strip_leading_lines_matching`, optional `strip_prefix_literals`)
+- [`src/reader/content_clean.py`](src/reader/content_clean.py) — post-extraction cleanup after Trafilatura, before validation and `summary = content[:500]`
+- Anthropic source profiles strip footer newsletter CTAs from the start of `items.content`
+- [`tests/test_content_clean.py`](tests/test_content_clean.py) — unit tests for Anthropic junk-line removal
+
+### Changed
+- `extract_article()` and ingest handlers pass loaded `content_clean` rules from listing profiles or RSS `settings`
+
 ## [1.2.2] - 2026-06-27
 
 ### Changed

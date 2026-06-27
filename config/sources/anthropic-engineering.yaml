@@ -33,3 +33,6 @@ content_selectors:
   - main
 paragraph_selector: article p, main p, p
 max_links: 25
+content_clean:
+  strip_leading_lines_matching:
+    - '(?i)^##\s+Get the developer newsletter\s*$'

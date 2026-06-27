@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit, urlunsplit
 
+from reader.config import ContentCleanRules, ListingSourceProfile, load_content_clean_rules, load_listing_profile
 from reader.storage import ArticleRecord, IngestStats
 
 
@@ -99,6 +100,12 @@ def _skip_known_failure(
     return True
 
 
+def _content_clean_rules_for_source(source_config) -> ContentCleanRules:
+    if source_config.config_path:
+        return load_listing_profile(source_config.config_path).content_clean
+    return load_content_clean_rules(source_config.settings)
+
+
 def _handle_rss_source(
     source_config,
     connection,
@@ -156,6 +163,7 @@ def _handle_rss_source(
             connection, raw.url, source_config.name, source_config.url, None, None,
             raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
             fetcher=fetcher, stats=stats,
+            content_clean_rules=_content_clean_rules_for_source(source_config),
         )
         if record is None:
             continue
@@ -328,7 +336,11 @@ def _handle_direct_source(
     articles = []
     if stats is not None:
         stats.fetched += 1
-    title, summary, content, author, raw_html, hero_image_url = extract_article(source_config.url, fetcher=source_config.scraper)
+    title, summary, content, author, raw_html, hero_image_url = extract_article(
+        source_config.url,
+        fetcher=source_config.scraper,
+        content_clean=_content_clean_rules_for_source(source_config),
+    )
     quality = validate_content(title, content, source_config.url, source_config.name)
     if not quality.is_valid:
         if stats is not None:
@@ -376,6 +388,7 @@ def _fetch_article(
     source_scraper: str = "requests",
     fetcher: str = "requests",
     stats: IngestStats | None = None,
+    content_clean_rules: ContentCleanRules | None = None,
 ) -> ArticleRecord | None:
     """Fetch an article page, validate content quality, and return an ArticleRecord
     or None if the article fails validation."""
@@ -387,6 +400,8 @@ def _fetch_article(
     if stats is not None:
         stats.fetched += 1
 
+    clean_rules = profile.content_clean if profile is not None else content_clean_rules
+
     if profile is not None:
         title, summary, content, author, raw_html, hero_image_url = extract_article(
             article_url,
@@ -394,10 +409,15 @@ def _fetch_article(
             title_selector=profile.title_selector,
             content_selectors=profile.content_selectors,
             paragraph_selector=profile.paragraph_selector,
+            content_clean=clean_rules,
         )
         listing_summary = listing_article.summary
     else:
-        title, summary, content, author, raw_html, hero_image_url = extract_article(article_url, fetcher=fetcher)
+        title, summary, content, author, raw_html, hero_image_url = extract_article(
+            article_url,
+            fetcher=fetcher,
+            content_clean=clean_rules,
+        )
         listing_summary = summary
 
     from reader.storage import log_ingestion_failure, resolve_raw_html_path
@@ -661,6 +681,8 @@ def extract_article(
     content_selectors: tuple[str, ...] = (),
     paragraph_selector: str = "article p, main p, p",
     timeout: int = 15,
+    *,
+    content_clean: ContentCleanRules | None = None,
 ) -> tuple[str, str, str | None, str | None, str, str | None]:
     """Fetch *url*, parse it, and return (title, summary, content, author, raw_html, hero_image_url).
 
@@ -684,6 +706,10 @@ def extract_article(
         content_selectors=content_selectors,
         paragraph_selector=paragraph_selector,
     )
+
+    from reader.content_clean import clean_content
+
+    content = clean_content(content, content_clean)
 
     trafilatura_title = _extract_title_with_trafilatura(html, url)
     if trafilatura_title:

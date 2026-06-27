@@ -19,6 +19,15 @@ class SourceConfig:
 
 
 @dataclass(frozen=True)
+class ContentCleanRules:
+    strip_leading_lines_matching: tuple[str, ...] = ()
+    strip_prefix_literals: tuple[str, ...] = ()
+
+    def is_empty(self) -> bool:
+        return not self.strip_leading_lines_matching and not self.strip_prefix_literals
+
+
+@dataclass(frozen=True)
 class ListingSourceProfile:
     fetcher: str = "requests"
     api_tag: str | None = None
@@ -34,6 +43,7 @@ class ListingSourceProfile:
     content_selectors: tuple[str, ...] = ()
     paragraph_selector: str = "article p, main p, p"
     max_links: int = 25
+    content_clean: ContentCleanRules = ContentCleanRules()
 
 
 @dataclass(frozen=True)
@@ -104,6 +114,23 @@ def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:
         content_selectors=tuple(str(value) for value in raw.get("content_selectors", [])),
         paragraph_selector=str(raw.get("paragraph_selector", "article p, main p, p")),
         max_links=int(raw.get("max_links", 25)),
+        content_clean=load_content_clean_rules(raw),
+    )
+
+
+def load_content_clean_rules(raw: dict | None) -> ContentCleanRules:
+    if not raw:
+        return ContentCleanRules()
+
+    block = raw.get("content_clean", raw)
+    if not isinstance(block, dict):
+        return ContentCleanRules()
+
+    return ContentCleanRules(
+        strip_leading_lines_matching=tuple(
+            str(value) for value in block.get("strip_leading_lines_matching", [])
+        ),
+        strip_prefix_literals=tuple(str(value) for value in block.get("strip_prefix_literals", [])),
     )
 
 

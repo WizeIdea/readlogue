@@ -85,7 +85,8 @@ All data flows are automated, auditable, and fully containerized.
 ### Ingestion & Validation
 - Configurable Ingestion Cadence: The ingestion frequency can be adjusted via the GitHub Actions cron schedule, allowing the system to scale based on specific regulatory throughput requirements.
 - Supports RSS feeds and structured listing pages.
-- Configurable per source (selectors, categories, ownership).
+- Configurable per source (selectors, categories, ownership, content cleanup rules).
+- Article body extraction uses Trafilatura with CSS selector fallback; per-source `content_clean` rules in YAML remove site-specific junk (e.g. newsletter CTAs) before storage. Full text lives in `items.content`; list views use the 500-character `summary` only.
 - Content validation filters: minimum word count, HTML residue, lexical diversity.
 - Failed sources are logged for review—no silent failures.
 - System includes proactive logging and alerting; failures in external source ingestion are flagged in UI and logged to GitHub Actions for immediate visibility.
