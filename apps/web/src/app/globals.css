@@ -1,26 +1,465 @@
 @import "tailwindcss";
 
+/* --- 1. Theme tokens (light) --- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8f9fa;
+  --foreground: #1a1a1a;
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --primary: #1e4d7b;
+  --primary-foreground: #ffffff;
+  --secondary: #eef1f4;
+  --secondary-foreground: #1a1a1a;
+  --muted: #eef1f4;
+  --muted-foreground: #5c6570;
+  --accent: #e8edf2;
+  --accent-foreground: #1a1a1a;
+  --destructive: #b42318;
+  --destructive-foreground: #ffffff;
+  --border: #d8dee4;
+  --input: #d8dee4;
+  --ring: #1e4d7b;
+  --thumb-bg: #e2e6ea;
+  --radius: 6px;
+  --content-max: 72rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #121416;
+    --foreground: #e8eaed;
+    --card: #1a1d21;
+    --card-foreground: #e8eaed;
+    --primary: #5b9fd4;
+    --primary-foreground: #0d1114;
+    --secondary: #252a30;
+    --secondary-foreground: #e8eaed;
+    --muted: #252a30;
+    --muted-foreground: #9aa3ad;
+    --accent: #2a3038;
+    --accent-foreground: #e8eaed;
+    --destructive: #f97066;
+    --destructive-foreground: #1a1d21;
+    --border: #343b44;
+    --input: #343b44;
+    --ring: #5b9fd4;
+    --thumb-bg: #252a30;
+  }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* --- 2. Base --- */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
+  margin: 0;
+  min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--primary);
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* --- 3. Layout --- */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--card);
+}
+
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--space-4);
+}
+
+.app-title {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.app-tagline {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.app-main {
+  flex: 1;
+  max-width: var(--content-max);
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
+.page-nav-info {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+/* --- 4. Login --- */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: var(--space-4);
+}
+
+.login-card {
+  width: 100%;
+  max-width: 24rem;
+  padding: var(--space-6);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: 0.875rem;
+  font-weight: 500;
+}
+
+.form-input {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+}
+
+.form-input:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.form-error {
+  color: var(--destructive);
+  font-size: 0.875rem;
+}
+
+/* --- 5. Articles --- */
+.article-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.article-row {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+@media (max-width: 640px) {
+  .article-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+.article-thumb-wrap {
+  aspect-ratio: 4 / 3;
+  background: var(--thumb-bg);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.article-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.article-thumb-placeholder {
+  width: 100%;
+  height: 100%;
+  background: var(--thumb-bg);
+}
+
+.article-title {
+  margin: 0 0 var(--space-2);
+  font-size: 1.125rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.article-meta {
+  margin: 0 0 var(--space-3);
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.article-summary-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-bottom: var(--space-2);
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  cursor: pointer;
+}
+
+.article-summary-toggle:hover {
+  text-decoration: underline;
+}
+
+.article-summary {
+  margin: 0 0 var(--space-3);
+  font-size: 0.9375rem;
+  color: var(--foreground);
+  white-space: pre-wrap;
+}
+
+.article-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.article-status {
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  margin-right: var(--space-2);
+}
+
+/* --- 6. Buttons (shadcn + custom) --- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  font-family: inherit;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-md {
+  height: 2.25rem;
+  padding: 0 var(--space-4);
+}
+
+.btn-sm {
+  height: 2rem;
+  padding: 0 var(--space-3);
+  font-size: 0.8125rem;
+}
+
+.btn-default {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.btn-default:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.btn-outline {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--foreground);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.btn-destructive {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+}
+
+.btn-like-active {
+  background: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.btn-dislike-active {
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  border-color: var(--destructive);
+}
+
+/* --- 7. Alert --- */
+.alert {
+  padding: var(--space-4);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  margin-bottom: var(--space-6);
+}
+
+.alert-default {
+  background: var(--card);
+}
+
+.alert-destructive {
+  background: var(--card);
+  border-color: var(--destructive);
+}
+
+.alert-title {
+  margin: 0 0 var(--space-2);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.alert-description {
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.failure-item {
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.failure-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.failure-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* --- 8. Select --- */
+.select-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  min-width: 10rem;
+  height: 2.25rem;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.select-trigger:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.select-chevron {
+  width: 1rem;
+  height: 1rem;
+  opacity: 0.6;
+}
+
+.select-content {
+  z-index: 50;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.select-viewport {
+  padding: var(--space-1);
+}
+
+.select-item {
+  padding: var(--space-2) var(--space-3);
+  font-size: 0.875rem;
+  border-radius: calc(var(--radius) - 2px);
+  cursor: pointer;
+  outline: none;
+}
+
+.select-item[data-highlighted] {
+  background: var(--accent);
+}
+
+.empty-state {
+  padding: var(--space-6);
+  text-align: center;
+  color: var(--muted-foreground);
 }

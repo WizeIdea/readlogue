@@ -20,7 +20,7 @@ In the age of AI, information overload is a technical problem, not just a lifest
 1.  **Ingest:** GitHub Actions execute the Python pipeline daily, fetching content from configured URLs.
 2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) in the **data repository**.
 3.  **Index:** Metadata, clean Markdown content, and labels are stored in **Supabase Postgres** (production). A scratch SQLite file on the GHA runner is hydrated from Supabase before each run for dedup/skip logic.
-4.  **Visualize:** Next.js on Vercel (Phase 2, in progress); Streamlit remains available for local SQLite dev.
+4.  **Visualize:** Next.js dashboard at [`apps/web`](apps/web) (Vercel); Streamlit remains available for optional local SQLite dev.
 
 ## Storage layout
 
@@ -96,7 +96,8 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 - `src/reader/supabase_sync.py` hydrates scratch SQLite from Supabase before ingest, syncs changes back after (GHA), and loads runtime ignore rules from the `ignored_urls` table.
 - `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival.
 - `src/reader/db_backup.py` rotates daily (7) and monthly SQLite backups into the data repository after ingest.
-- `streamlit_app.py` is the local UI entrypoint (reads local `data/reader.db`; hosted UI planned via Next.js + Supabase).
+- `apps/web/` — Next.js dashboard (Supabase auth, like/dislike curation, ingestion failure handling). See [`apps/web/README.md`](apps/web/README.md).
+- `streamlit_app.py` is an optional local UI entrypoint (reads local `data/reader.db`).
 - `.github/workflows/ingest.yml` runs ingestion on a schedule or manually; requires Supabase secrets.
 - Raw HTML is saved to `raw_html/YYYY-MM-DD/<uuid>.html` in the **data** repository.
 - DB backups are saved to `db_backups/daily/` and `db_backups/monthly/` in the data repository.
@@ -106,47 +107,86 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 - Non-RSS source profiles now also carry source-specific selectors for date and category extraction.
 - Hugging Face is handled as a tag-aware source because the public RSS feed does not expose the category split we need.
 
+File layout reference: [`UI_STRUCTURE.md`](UI_STRUCTURE.md)
+
 ## How to use the reader UI
 
-The UI is the Streamlit app in `streamlit_app.py`. It reads and writes the same `data/reader.db` file that ingestion uses.
+The hosted UI is the Next.js app in [`apps/web/`](apps/web/). It reads from and writes to **Supabase Postgres** (production index). Setup: [`apps/web/README.md`](apps/web/README.md).
 
-**Note:** Automatic sync of UI changes to GitHub is not yet implemented. For now, the UI is intended for local development against a cloned database. Hosted deployment with auto-commit is planned for a later phase.
+### Run locally
 
-1. Start the app with Streamlit using the repo's configured Python environment.
-2. Open the page and load the same config file that ingestion uses.
-3. Articles are paginated (25 per page). Use the `← Previous` / `Next →` buttons at the bottom to navigate.
-4. Each article card shows the title, source, URL, summary, read status, rating, source category, and manual category.
-5. Use `Mark read` and `Mark unread` to update the read state.
-6. Use `Like` and `Dislike` to set the article rating.
-7. Use the category dropdown to assign a manual label from the configured category list.
+```bash
+cd apps/web
+cp .env.example .env.local   # Supabase URL, anon key, service role key
+npm install
+npm run dev
+```
 
-These actions update the SQLite database directly:
+Create a user in **Supabase → Authentication → Users** (email/password), then open http://localhost:3000 and sign in.
 
-- `read_at` stores the read/unread state.
-- `rating` stores `like` or `dislike`.
-- `category` stores the manual label chosen in the UI.
+### Dashboard
+
+The home page lists ingested articles from the `items` table:
+
+- **25 articles per page** — Previous / Next at the bottom
+- **Unread first**, then newest by publication date (or ingest date)
+- Each row shows:
+  - **Hero image** (`hero_image_url`) when ingest captured Open Graph / Twitter meta
+  - **Title** — links to the original article (opens in a new tab; read the article there)
+  - **Source name** and source category, plus read/unread status
+  - **Summary** — click “Summary” to expand or collapse the preview text
+
+### Curation
+
+Curation is the primary purpose of the UI — labels feed planned ML training:
+
+| Action | Database field | Values |
+|--------|----------------|--------|
+| **Like** / **Dislike** | `rating` | `like`, `dislike` |
+| **Mark read** / **Mark unread** | `read_at` | ISO timestamp or `null` |
+| **Category** dropdown | `category` | From [`config.example.yaml`](config.example.yaml) list (mirrored in `apps/web/src/lib/categories.ts`) |
+
+Changes save immediately to Supabase via Server Actions (authenticated session + service role on the server). Ingest does not overwrite existing `rating`, `read_at`, or manual `category` on re-fetch.
+
+### Ingestion failures
+
+When validation rejects an article, the pipeline records a row in `ingestion_log`. If any exist, a red **Ingestion failures** banner appears at the top of the dashboard.
+
+For each failed URL you see the source, link, error message, and attempt count.
+
+| Button | Effect |
+|--------|--------|
+| **Ignore URL** | Adds the URL path segment to Supabase `ignored_urls` (substring match). Clears the log row. Future GHA runs skip this URL (merged with YAML ignores). |
+| **Dismiss** | Clears the log row only. Does not add an ignore rule — use when the scraper wrongly flagged a URL you still want ingested. |
+
+YAML seed ignores (`ignored_url_substrings` / `ignored_urls` in config) remain the baseline; Supabase `ignored_urls` holds runtime rules from the UI.
+
+After **`auto_skip_failure_threshold`** failures (default `3`), ingest stops re-fetching a URL that is not yet in `items` (`skipped_known_failure` in GHA logs).
+
+### Optional: Streamlit (local SQLite only)
+
+[`streamlit_app.py`](streamlit_app.py) still works against local `data/reader.db` without Supabase. It is not synced to production; use the Next.js app for hosted curation.
 
 ## Backfill / recovery checklist
 
 Use this when you are doing the first full import or recovering from a broken source.
 
 1. Confirm the local config contains all sources you want to ingest.
-2. Run ingestion once to create the SQLite database and populate initial items.
-3. Open the UI and spot-check that articles render with the expected title, summary, and source metadata.
-4. Mark a few items read, unread, like, and dislike to confirm the UI writes back to SQLite correctly.
+2. Run ingestion once to populate Supabase (or local SQLite for dev).
+3. Open the dashboard and spot-check that articles render with title, summary, source metadata, and hero images where available.
+4. Mark a few items read, unread, like, and dislike to confirm curation writes to Supabase correctly.
 5. If a source changes layout or starts failing, fix its source config or scraper settings first.
 6. Re-run ingestion after the fix and confirm only new URLs are fetched.
-7. If a source produces bad or duplicated rows, remove or repair those rows in SQLite before the next scheduled run.
+7. If a source produces bad or duplicated rows, remove or repair those rows in Supabase before the next scheduled run.
 8. Re-export the dataset after recovery so CSV and JSONL stay aligned with the current database.
 
-### Ingestion failures and ignore list
+### Ingestion failures and ignore list (reference)
 
-When validation rejects an article (empty body, HTML residue, low lexical diversity, etc.), the pipeline records one row per URL in `ingestion_log` with an incrementing `failure_count`. The Streamlit UI shows these from the **first** failure with the error message and attempt count.
+When validation rejects an article (empty body, HTML residue, low lexical diversity, etc.), the pipeline records one row per URL in `ingestion_log` with an incrementing `failure_count`. The dashboard banner shows these with ignore/dismiss actions (see [Ingestion failures](#ingestion-failures) above).
 
 - **`ignored_url_substrings` / `ignored_urls` (YAML)** — skip matching URLs before fetch (no HTTP request). Use for repeat offenders such as JavaScript shells that will never pass validation.
-- **`ignored_urls` (Supabase)** — same semantics, managed at runtime from the hosted UI; merged with YAML on each ingest run.
+- **`ignored_urls` (Supabase)** — same semantics, managed from the hosted UI; merged with YAML on each ingest run.
 - **`auto_skip_failure_threshold`** (default `3`) — after this many failures for a URL that is not yet in `items`, ingest stops re-fetching it (`skipped_known_failure` in the summary).
-- **Ignore button** in the UI appends the URL to your config and clears the log row locally. With `READLOGUE_GITHUB_TOKEN` set, `git_sync` can commit the config change (Phase 2).
 
 Successful ingest removes the matching `ingestion_log` row. A **validation whitelist** (bypass checks for known-good URLs such as `cyber-toolkits-update`) is planned — see Next steps item 11.
 
@@ -226,6 +266,6 @@ The ingestion pipeline must never overwrite the manual `category`, `read_at`, or
 ### New items
 
 8. Set up the data repo deploy key (SSH key) to activate the dual-repo raw HTML archival workflow.
-9. Next.js hosted UI on Vercel (Phase 2).
+9. ~~Next.js hosted UI on Vercel (Phase 2).~~ — [`apps/web`](apps/web)
 10. Document the source-kind registry pattern (`SOURCE_HANDLERS`) in CONTRIBUTING.md for future contributors.
 11. Add a validation **whitelist** for URLs that should bypass lexical-diversity or similar checks (e.g. `cyber-toolkits-update` on Anthropic Research).

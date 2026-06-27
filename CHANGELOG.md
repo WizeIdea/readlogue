@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [Trafilatura](https://github.com/adbar/trafilatura) as primary article body extractor for ML-ready Markdown (`items.content`)
 - `_extract_with_trafilatura()`, `_extract_main_content()` — Trafilatura first; CSS selector + html2text fallback when extraction is empty or too short
 - Tests with HF-style chrome fixtures verifying nav/share text is excluded from content
+- `apps/web/` — Next.js dashboard: Supabase email/password auth, paginated article list with hero thumbnails, like/dislike/read/category curation, ingestion failure banner with ignore and dismiss actions
+- Server Actions for curation writes via service role; API routes `POST /api/ignore` and `POST /api/dismiss-failure`
+- Dual light/dark theme via CSS variables in `apps/web/src/app/globals.css` (`prefers-color-scheme`, no toggle)
+- Minimal shadcn-style UI primitives (button, select, alert, collapsible) styled from `globals.css`
 
 ### Changed
 - `extract_article()` uses Trafilatura before legacy `article`/`main` html2text conversion
