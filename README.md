@@ -160,6 +160,7 @@ All components are configured to run on generous free tiers, making this solutio
 | Quarter | Capability |
 | :--- | :--- |
 | **Q3 2026** | AI‑powered prioritization: automatically flag high‑urgency updates based on your labeling history. |
+| **Q3 2026** | **RSS metadata + manual import:** when full article fetch is blocked (e.g. Cloudflare on GHA), ingest RSS title/link/summary as stub items; dashboard lists them with a manual import path to paste or upload full text for labeling and ML export. |
 | **Q4 2026** | Slack/Teams integration: push daily digests to compliance channels. |
 | **Q1 2027** | Multi‑team support: role‑based access for legal, compliance, and risk teams. |
 | **Q2 2027** | Regulatory calendar integration: auto‑map updates to internal compliance deadlines. |

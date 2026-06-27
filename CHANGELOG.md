@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.3] - 2026-06-27
+
+### Fixed
+- `aisi-blog` profile strips the leading AISI → AI Security Institute rename disclaimer from `items.content`
+
+## [1.4.2] - 2026-06-27
+
+### Fixed
+- RSS ingest no longer aborts an entire source on the first HTTP 403 — per-URL errors are logged and skipped
+- `the-batch` and `turing-blog` use `fetcher: playwright` to bypass Cloudflare blocks on GHA datacenter IPs
+
+### Changed
+- README Phase 2 roadmap: RSS metadata stubs + manual full-text import for bot-protected publishers
+
 ## [1.4.1] - 2026-06-27
 
 ### Added

@@ -11,6 +11,7 @@ ENGINEERING_RULES = load_listing_profile(REPO_ROOT / "config/sources/anthropic-e
 RESEARCH_RULES = load_listing_profile(REPO_ROOT / "config/sources/anthropic-research.yaml").content_clean
 NEWS_RULES = load_listing_profile(REPO_ROOT / "config/sources/anthropic-news.yaml").content_clean
 FRONTIER_RULES = load_listing_profile(REPO_ROOT / "config/sources/anthropic-frontier-red-team.yaml").content_clean
+AISI_RULES = load_listing_profile(REPO_ROOT / "config/sources/aisi-blog.yaml").content_clean
 
 
 class ContentCleanTests(unittest.TestCase):
@@ -80,6 +81,18 @@ class ContentCleanTests(unittest.TestCase):
         content = "JUNK\n\nReal article text."
         cleaned = clean_content(content, rules)
         self.assertEqual(cleaned, "Real article text.")
+
+    def test_aisi_strips_rename_disclaimer(self) -> None:
+        content = (
+            "*Note to readers: we changed our name to the AI Security Institute on "
+            "14 February 2025. Read more** here.*\n\n"
+            "A key part of our work at the AI Safety Institute involves evaluating advanced AI systems."
+        )
+        cleaned = clean_content(content, AISI_RULES)
+        self.assertEqual(
+            cleaned,
+            "A key part of our work at the AI Safety Institute involves evaluating advanced AI systems.",
+        )
 
     def test_body_preserved_when_no_junk_prefix(self) -> None:
         content = "Real article text with no newsletter heading."

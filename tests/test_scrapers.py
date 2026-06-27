@@ -287,6 +287,65 @@ class RssSourceHandlerTests(unittest.TestCase):
         self.assertEqual(len(articles), 1)
         self.assertEqual(articles[0].category, "Research Digests")
 
+    @patch("reader.scrapers._fetch_article")
+    @patch("reader.scrapers.parse_rss_feed")
+    def test_rss_continues_after_http_error_on_one_url(
+        self, parse_feed: Mock, fetch_article: Mock
+    ) -> None:
+        import requests
+
+        from reader.config import SourceConfig
+        from reader.scrapers import _handle_rss_source
+        from reader.storage import ArticleRecord, connect, initialize
+
+        parse_feed.return_value = [
+            ArticleRecord(
+                source_name="the-batch",
+                source_url="https://example.com/feed.xml",
+                url="https://example.com/blocked",
+                title="Blocked",
+                summary="",
+                content="",
+                published_at=None,
+            ),
+            ArticleRecord(
+                source_name="the-batch",
+                source_url="https://example.com/feed.xml",
+                url="https://example.com/ok",
+                title="OK",
+                summary="",
+                content="",
+                published_at=None,
+            ),
+        ]
+        fetch_article.side_effect = [
+            requests.HTTPError("403 Client Error: Forbidden"),
+            ArticleRecord(
+                source_name="the-batch",
+                source_url="https://example.com/feed.xml",
+                url="https://example.com/ok",
+                title="OK",
+                summary="Full article body with enough words for validation downstream.",
+                content="Full article body with enough words for validation downstream.",
+                published_at=None,
+            ),
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "reader.db"
+            initialize(db_path)
+            with connect(db_path) as connection:
+                source = SourceConfig(
+                    name="the-batch",
+                    kind="rss",
+                    url="https://example.com/feed.xml",
+                )
+                articles = _handle_rss_source(source, connection)
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].url, "https://example.com/ok")
+        self.assertEqual(fetch_article.call_count, 2)
+
 
 class TrafilaturaExtractionTests(unittest.TestCase):
     def _hf_blog_html(self, *, intro: str, body: str) -> str:

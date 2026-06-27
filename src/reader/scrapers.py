@@ -162,14 +162,41 @@ def _handle_rss_source(
         ):
             continue
         fingerprint = item_fingerprint(raw.url) if raw.url and raw.url.strip() else None
-        record = _fetch_article(
-            connection, raw.url, source_config.name, source_config.url, None, profile,
-            raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
-            fetcher=fetcher, stats=stats,
-            content_clean_rules=(
-                profile.content_clean if profile is not None else _content_clean_rules_for_source(source_config)
-            ),
-        )
+        try:
+            record = _fetch_article(
+                connection, raw.url, source_config.name, source_config.url, None, profile,
+                raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+                fetcher=fetcher, stats=stats,
+                content_clean_rules=(
+                    profile.content_clean if profile is not None else _content_clean_rules_for_source(source_config)
+                ),
+            )
+        except requests.HTTPError as exc:
+            from reader.storage import log_ingestion_failure
+
+            logger.warning(
+                "HTTP error fetching %s from '%s': %s",
+                raw.url,
+                source_config.name,
+                exc,
+            )
+            log_ingestion_failure(connection, source_config.name, raw.url, str(exc))
+            if stats is not None:
+                stats.validation_failed += 1
+            continue
+        except requests.RequestException as exc:
+            from reader.storage import log_ingestion_failure
+
+            logger.warning(
+                "Request error fetching %s from '%s': %s",
+                raw.url,
+                source_config.name,
+                exc,
+            )
+            log_ingestion_failure(connection, source_config.name, raw.url, str(exc))
+            if stats is not None:
+                stats.validation_failed += 1
+            continue
         if record is None:
             continue
         if fingerprint:

@@ -1,0 +1,3 @@
+content_clean:
+  strip_leading_lines_matching:
+    - '(?i)^\*Note to readers: we changed our name to the AI Security Institute.*\*?\s*$'
