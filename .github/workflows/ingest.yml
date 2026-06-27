@@ -3,7 +3,8 @@ name: ingest
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * *"
+    # Daily at 18:00 UTC (6:00 PM GMT). GitHub Actions cron always uses UTC.
+    - cron: "0 18 * * *"
 
 permissions:
   contents: write
