@@ -1,0 +1,11 @@
+fetcher: requests
+title_selector: h1
+content_root_selector: .blog-content
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+content_clean:
+  strip_leading_lines_matching:
+    - '(?i)^\[\s*[^]]*•[^]]*\]\(https://huggingface\.co/[^)]+\)\s*$'
+    - '(?i)^\[Update on GitHub\]\(https://github\.com/huggingface/blog/[^)]+\)\s*$'

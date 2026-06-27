@@ -13,12 +13,22 @@ auto_skip_failure_threshold: 3
 
 categories:
   - Technical Research
+  - Research Digests
   - AI News
   - Governance and Policy
   - Safety and Alignment
   - Product Updates
   - Other
 sources:
+  - name: huggingface-blog
+    kind: rss
+    url: https://huggingface.co/blog/feed.xml
+    scraper: rss
+    config: config/sources/huggingface-blog.yaml
+    settings:
+      max_entries: 25
+      default_category: AI News
+
   - name: huggingface-ethics
     kind: api_tag
     url: https://huggingface.co/blog?tag=ethics
@@ -30,6 +40,14 @@ sources:
     url: https://huggingface.co/blog?tag=research
     scraper: requests
     config: config/sources/huggingface-research.yaml
+
+  - name: microsoft-research-blog
+    kind: rss
+    url: https://www.microsoft.com/en-us/research/blog/feed/
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Technical Research
 
   - name: deepmind-google-blog
     kind: rss
@@ -44,6 +62,39 @@ sources:
     scraper: rss
     settings:
       max_entries: 25
+      default_category: Technical Research
+
+  - name: openai-news
+    kind: rss
+    url: https://openai.com/news/rss.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: AI News
+
+  - name: importai
+    kind: rss
+    url: https://importai.substack.com/feed
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Research Digests
+
+  - name: nist-news
+    kind: rss
+    url: https://www.nist.gov/news-events/news/rss.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Governance and Policy
+
+  - name: nist-it-news
+    kind: rss
+    url: https://www.nist.gov/news-events/information%20technology/rss.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Governance and Policy
 
   - name: anthropic-research
     kind: listing

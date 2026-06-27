@@ -59,6 +59,7 @@ class AppConfig:
 
 DEFAULT_CATEGORIES = [
     "Technical Research",
+    "Research Digests",
     "AI News",
     "Governance and Policy",
     "Safety and Alignment",

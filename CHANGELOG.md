@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-27
+
+### Added
+- RSS sources: `microsoft-research-blog`, `importai`, `nist-news`, `nist-it-news`, `huggingface-blog`, `openai-news` (main HF feed)
+- `Research Digests` category (Import AI and future digest sources)
+- `settings.default_category` on RSS sources — pre-labels ingested items for the dashboard
+- [`config/sources/huggingface-blog.yaml`](config/sources/huggingface-blog.yaml) — `.blog-content` extraction and model-card cleanup for the main HF RSS feed
+- RSS sources with `config:` paths now load listing profiles for `content_root_selector` / `content_clean`
+
+### Changed
+- `openai-engineering` and `openai-news` RSS sources with `default_category` Technical Research / AI News
+
 ## [1.3.1] - 2026-06-27
 
 ### Added

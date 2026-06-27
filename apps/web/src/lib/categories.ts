@@ -1,6 +1,7 @@
 /** Keep in sync with config.example.yaml categories */
 export const CATEGORIES = [
   "Technical Research",
+  "Research Digests",
   "AI News",
   "Governance and Policy",
   "Safety and Alignment",

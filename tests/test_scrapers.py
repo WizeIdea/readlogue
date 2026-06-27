@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 from reader.scrapers import (
@@ -221,6 +223,51 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(articles), 2)
         self.assertEqual(articles[0].url, "https://example.com/post-0")
         self.assertEqual(articles[1].url, "https://example.com/post-1")
+
+
+class RssSourceHandlerTests(unittest.TestCase):
+    @patch("reader.scrapers._fetch_article")
+    @patch("reader.scrapers.parse_rss_feed")
+    def test_rss_applies_default_category(self, parse_feed: Mock, fetch_article: Mock) -> None:
+        from reader.config import SourceConfig
+        from reader.scrapers import _handle_rss_source
+        from reader.storage import ArticleRecord, connect, initialize
+
+        parse_feed.return_value = [
+            ArticleRecord(
+                source_name="importai",
+                source_url="https://importai.substack.com/feed",
+                url="https://importai.substack.com/p/example",
+                title="Import AI 462",
+                summary="Digest summary",
+                content="Digest summary",
+                published_at="2026-06-01",
+            )
+        ]
+        fetch_article.return_value = ArticleRecord(
+            source_name="importai",
+            source_url="https://importai.substack.com/feed",
+            url="https://importai.substack.com/p/example",
+            title="Import AI 462",
+            summary="Full article summary",
+            content="Full article body with enough words for validation downstream in other tests.",
+            published_at=None,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "reader.db"
+            initialize(db_path)
+            with connect(db_path) as connection:
+                source = SourceConfig(
+                    name="importai",
+                    kind="rss",
+                    url="https://importai.substack.com/feed",
+                    settings={"max_entries": 25, "default_category": "Research Digests"},
+                )
+                articles = _handle_rss_source(source, connection)
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].category, "Research Digests")
 
 
 class TrafilaturaExtractionTests(unittest.TestCase):

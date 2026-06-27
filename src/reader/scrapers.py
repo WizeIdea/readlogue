@@ -143,6 +143,9 @@ def _handle_rss_source(
         len(pending),
     )
 
+    profile = load_listing_profile(source_config.config_path) if source_config.config_path else None
+    default_category = source_config.settings.get("default_category")
+
     for raw in pending:
         if _skip_ignored_url(
             raw.url,
@@ -160,10 +163,12 @@ def _handle_rss_source(
             continue
         fingerprint = item_fingerprint(raw.url) if raw.url and raw.url.strip() else None
         record = _fetch_article(
-            connection, raw.url, source_config.name, source_config.url, None, None,
+            connection, raw.url, source_config.name, source_config.url, None, profile,
             raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
             fetcher=fetcher, stats=stats,
-            content_clean_rules=_content_clean_rules_for_source(source_config),
+            content_clean_rules=(
+                profile.content_clean if profile is not None else _content_clean_rules_for_source(source_config)
+            ),
         )
         if record is None:
             continue
@@ -174,6 +179,8 @@ def _handle_rss_source(
         object.__setattr__(record, "published_at", record.published_at or raw.published_at)
         object.__setattr__(record, "source_category", record.source_category or raw.source_category)
         object.__setattr__(record, "author", record.author or raw.author)
+        if default_category:
+            object.__setattr__(record, "category", str(default_category))
         articles.append(record)
     return articles
 
