@@ -226,6 +226,7 @@ def _handle_listing_source(
     from reader.storage import existing_item_fingerprints, item_fingerprint
 
     profile = load_listing_profile(source_config.config_path)
+    default_category = source_config.settings.get("default_category")
     discovered_articles = parse_listing_articles(
         source_config.url,
         fetcher=profile.fetcher,
@@ -271,6 +272,8 @@ def _handle_listing_source(
         )
         if record is None:
             continue
+        if default_category:
+            object.__setattr__(record, "category", str(default_category))
         if fingerprint:
             existing_fingerprints.add(fingerprint)
         articles.append(record)
@@ -291,6 +294,7 @@ def _handle_api_tag_source(
     from reader.storage import existing_item_fingerprints, item_fingerprint
 
     profile = load_listing_profile(source_config.config_path)
+    default_category = source_config.settings.get("default_category")
     tag = profile.api_tag or source_config.settings.get("tag") or source_config.name
     discovered_articles = parse_huggingface_tag_articles(str(tag))[: profile.max_links]
     validate_listing_articles(source_config.name, source_config.url, discovered_articles)
@@ -324,6 +328,8 @@ def _handle_api_tag_source(
         )
         if record is None:
             continue
+        if default_category:
+            object.__setattr__(record, "category", str(default_category))
         if fingerprint:
             existing_fingerprints.add(fingerprint)
         articles.append(record)

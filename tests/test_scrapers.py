@@ -11,6 +11,7 @@ from reader.scrapers import (
     _extract_main_content,
     _extract_with_trafilatura,
     _strip_embed_markup,
+    _handle_listing_source,
     build_url_ignore_checker,
     discover_listing_links_from_html,
     parse_huggingface_tag_articles,
@@ -244,6 +245,50 @@ class ScraperDiscoveryTests(unittest.TestCase):
 
 
 class RssSourceHandlerTests(unittest.TestCase):
+    @patch("reader.scrapers._fetch_article")
+    @patch("reader.scrapers.parse_listing_articles")
+    def test_listing_applies_default_category(
+        self, parse_listing: Mock, fetch_article: Mock
+    ) -> None:
+        from reader.config import SourceConfig
+        from reader.scrapers import ListingArticle
+        from reader.storage import ArticleRecord, connect, initialize
+
+        parse_listing.return_value = [
+            ListingArticle(
+                url="https://oecd.ai/en/wonk/example-post",
+                title="Example",
+                summary=None,
+                published_at=None,
+                source_category=None,
+            )
+        ]
+        fetch_article.return_value = ArticleRecord(
+            source_name="oecd-ai-wonk",
+            source_url="https://oecd.ai/en/wonk",
+            url="https://oecd.ai/en/wonk/example-post",
+            title="Example",
+            summary="Summary",
+            content="Full article body with enough words for validation downstream in other tests.",
+            published_at=None,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "reader.db"
+            initialize(db_path)
+            with connect(db_path) as connection:
+                source = SourceConfig(
+                    name="oecd-ai-wonk",
+                    kind="listing",
+                    url="https://oecd.ai/en/wonk",
+                    config_path=Path("config/sources/oecd-ai-wonk.yaml"),
+                    settings={"default_category": "Governance and Policy"},
+                )
+                articles = _handle_listing_source(source, connection)
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].category, "Governance and Policy")
+
     @patch("reader.scrapers._fetch_article")
     @patch("reader.scrapers.parse_rss_feed")
     def test_rss_applies_default_category(self, parse_feed: Mock, fetch_article: Mock) -> None:

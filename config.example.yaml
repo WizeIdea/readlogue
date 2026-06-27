@@ -20,7 +20,47 @@ categories:
   - Product Updates
   - Other
 sources:
-  # --- Next GHA run: only these 3 enabled (AISI disclaimer fix + Playwright retest) ---
+  # --- Next GHA run: batch 4 Governance and Policy + prior batch 3 sources ---
+  - name: csail-news
+    kind: listing
+    url: https://www.csail.mit.edu/news/
+    scraper: beautifulsoup
+    config: config/sources/csail-news.yaml
+    settings:
+      default_category: Governance and Policy
+
+  - name: oecd-ai-wonk
+    kind: listing
+    url: https://oecd.ai/en/wonk
+    scraper: beautifulsoup
+    config: config/sources/oecd-ai-wonk.yaml
+    settings:
+      default_category: Governance and Policy
+
+  - name: partnership-on-ai-blog
+    kind: rss
+    url: https://partnershiponai.org/feed/
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Governance and Policy
+
+  - name: ainow-publications
+    kind: rss
+    url: https://ainowinstitute.org/publications/feed
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Governance and Policy
+
+  - name: eu-digital-strategy-news
+    kind: listing
+    url: https://digital-strategy.ec.europa.eu/en/news
+    scraper: beautifulsoup
+    config: config/sources/eu-digital-strategy-news.yaml
+    settings:
+      default_category: Governance and Policy
+
   - name: aisi-blog
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/aisi-blog.xml

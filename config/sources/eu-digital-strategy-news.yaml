@@ -1,0 +1,22 @@
+fetcher: requests
+item_selector: article, a[href*="/en/news/"]
+link_selector: a[href*="/en/news/"]
+allowed_url_prefixes:
+  - https://digital-strategy.ec.europa.eu/en/news/
+excluded_url_substrings:
+  - /en/news?page=
+title_selectors:
+  - h1
+date_selectors:
+  - time[datetime]
+  - time
+  - span
+date_formats:
+  - "%d/%m/%Y"
+  - "%B %d, %Y"
+  - "%b %d, %Y"
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 25

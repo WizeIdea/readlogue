@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.4] - 2026-06-27
+
+### Added
+- Governance and Policy batch: `csail-news`, `oecd-ai-wonk`, `partnership-on-ai-blog`, `ainow-publications`, `eu-digital-strategy-news` (enabled for next GHA run)
+- Listing profiles: [`config/sources/csail-news.yaml`](config/sources/csail-news.yaml), [`config/sources/oecd-ai-wonk.yaml`](config/sources/oecd-ai-wonk.yaml), [`config/sources/eu-digital-strategy-news.yaml`](config/sources/eu-digital-strategy-news.yaml)
+- `settings.default_category` now applied to listing and `api_tag` sources (same as RSS)
+
+### Notes
+- CSAIL listing exposes ~3 spotlight articles per run (Load More is JS); daily incremental ingest picks up new posts. Archive backfill deferred.
+
 ## [1.4.3] - 2026-06-27
 
 ### Fixed

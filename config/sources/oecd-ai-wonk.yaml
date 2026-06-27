@@ -1,0 +1,25 @@
+fetcher: requests
+item_selector: app-post-card, .card--post
+link_selector: a[href*="/en/wonk/"]
+allowed_url_prefixes:
+  - https://oecd.ai/en/wonk/
+excluded_url_substrings:
+  - /en/community/
+  - /en/wonk$
+title_selectors:
+  - h1
+  - h2
+  - h4
+date_selectors:
+  - span
+  - time
+date_formats:
+  - "%B %d, %Y"
+  - "%b %d, %Y"
+category_selectors:
+  - .has-text-link.xsmall-meta
+content_selectors:
+  - main
+  - article
+paragraph_selector: main p, article p, p
+max_links: 25
