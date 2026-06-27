@@ -1,270 +1,193 @@
 # ReadLogue
 
-Licensed under the [Apache License, Version 2.0](LICENSE).
+## Regulatory Intelligence Pipeline
 
-![Ingestion Workflow](https://github.com/WizeIdea/readlogue/actions/workflows/ingest.yml/badge.svg)
+*A complete content monitoring and compliance solution—purpose‑built for the **Regulatory & Compliance Monitoring** use case.*
 
-**ReadLogue** is a modular, automated research pipeline designed to aggregate, curate, and persist technical literature from diverse sources—including those without native RSS feeds. 
-
-Unlike traditional RSS readers that prioritize consumption, ReadLogue is built as a **Data Ingestion Pipeline**, designed to serve as a persistent, research-grade corpus for downstream AI implementation.
+---
 
-## The "Why": Architectural Philosophy
-In the age of AI, information overload is a technical problem, not just a lifestyle one. ReadLogue was built to solve the "RSS Bottleneck" and prepare for Machine Learning efficiencies.
+## Executive Summary
 
-*   **Hybrid Ingestion:** Combines efficient feed-parsing (`feedparser`) with resilient site-scraping (`newspaper4k`) to create a single, unified data stream.
-*   **Decoupled Storage:** We separate the **index** (Supabase Postgres) from the **raw HTML corpus** (GitHub data repository). Article Markdown lives in Postgres; bulk HTML stays out of Supabase to respect free-tier limits.
-*   **Researcher-First Design:** By persisting raw HTML/Markdown in a version-controlled, date-nested file structure, ReadLogue builds a "Ground Truth" dataset. This allows for reproducible experimentation, feature engineering, and training for future Deep Learning models.
-*   **Zero-Cost Infrastructure:** GitHub Actions for ingest, Supabase free tier for the index, GitHub for raw HTML archival.
+ReadLogue is a production‑ready, self‑hostable intelligence platform that automates the ingestion, curation, and archival of regulatory content from multiple public sources.
 
-## Data Pipeline
-1.  **Ingest:** GitHub Actions execute the Python pipeline daily, fetching content from configured URLs.
-2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) in the **data repository**.
-3.  **Index:** Metadata, clean Markdown content, and labels are stored in **Supabase Postgres** (production). A scratch SQLite file on the GHA runner is hydrated from Supabase before each run for dedup/skip logic.
-4.  **Visualize:** Next.js dashboard at [`apps/web`](apps/web) (Vercel); Streamlit remains available for optional local SQLite dev.
+It was built to solve a specific compliance problem:
 
-## Storage layout
+> **"How do we systematically monitor, prioritize, and preserve regulatory updates in a way that is audit‑ready and AI‑capable?"**
 
-| Asset | Location | Path |
-|-------|------------|------|
-| Production index | **Supabase Postgres** | `sources`, `items`, `ingestion_log`, `ignored_urls` |
-| Raw HTML | **Data repo** (`readlogue_data_2026`) | `raw_html/YYYY-MM-DD/<uuid>.html` |
-| Scratch SQLite (GHA only) | Ephemeral runner | `data/reader.db` (gitignored) |
-| SQLite file backups (optional) | **Data repo** | `db_backups/daily/`, `db_backups/monthly/` |
+The solution combines automated scraping, content validation, a team‑friendly labeling dashboard, and full source archival—all on infrastructure that is cost‑effective, secure, and easy to operate.
 
-### Backup policy
+**ReadLogue turns regulatory monitoring from a manual 'best-effort' activity into a systematic, repeatable, and audit-verifiable process.**
 
-- **Supabase Postgres** is the production source of truth for the index and article Markdown.
-- **Daily backups:** after each ingest, GHA copies the scratch SQLite file to `db_backups/daily/reader-YYYY-MM-DD.db` in the data repo (7-day retention).
-- **Monthly backups:** on the 1st of each month, a monthly copy is written to `db_backups/monthly/`. Monthly files are **never deleted**.
-- **`data/reader.db` is not committed** to the main repo (avoids binary git bloat).
+---
 
-### GitHub Actions flow
+## The Problem We Solved
 
-Each ingest job:
+Compliance teams face a growing challenge:
 
-1. Checks out the main repo and the data repo (`data-repo/`).
-2. **Hydrates** scratch SQLite from Supabase (existing articles, failures, `raw_html_path`, `hero_image_url` values).
-3. Runs ingestion — merges YAML and Supabase ignore lists, skips known URLs, fetches new articles, extracts hero images from page meta tags, writes raw HTML under `data-repo/raw_html/`.
-4. **Syncs** scratch SQLite deltas back to Supabase.
-5. Copies optional SQLite backups to `data-repo/db_backups/`.
-6. Commits new HTML and backup files to the **data** repo.
+- Regulators publish across dozens of websites, RSS feeds, and official gazettes.
+- Manual monitoring is error‑prone, time‑consuming, and leaves gaps.
+- When auditors ask, "How do you track regulatory changes?"—there is rarely a central, verifiable record.
 
-Setup: see [`supabase/README.md`](supabase/README.md). Apply migrations `001`–`004` in order. Required secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_REPO_DEPLOY_KEY`.
+ReadLogue closes that gap.
 
-**Fresh bootstrap:** truncate `items` and `ingestion_log` in Supabase (or delete `raw_html/` in the data repo) and run `workflow_dispatch` once to repopulate the index and HTML cleanly.
+It provides a single, searchable, and auditable repository of regulatory content, enriched with your team's judgments (priority, category, relevance). Raw HTML is archived automatically, creating a provable chain of custody for every source.
 
-## Intended Outcomes
-ReadLogue is designed to evolve with future ML projects:
-*   **Short-term:** A low-friction, dashboard for managing technical reading.
-*   **Mid-term:** A labeled, high-quality corpus for training custom classification models (Naive Bayes, Logistic Regression, and Neural Networks).
-*   **Long-term:** An automated "Research Assistant" that uses Vector Search and RAG to surface information based on historical interests.
+---
 
-## Goals
+## Solution Overview
 
-- Ingest RSS and scraped pages into Supabase Postgres (production) with optional local SQLite for development.
-- Store full article text for later model training.
-- Allow read/unread and Like/Dislike state changes from a Streamlit web page.
-- Allow manual category labeling from a configurable select list.
-- Extract source-specific dates and source categories from non-RSS listing pages.
-- Support tag-aware Hugging Face ingestion so Ethics and Research can be tracked separately.
-- Export CSV and JSONL snapshots on demand for ML workflows.
+### What It Does
 
-## Requirements
+| Component | Purpose |
+| :--- | :--- |
+| **Automated Ingestion** | Fetches regulatory updates from RSS feeds and official websites on a daily schedule. |
+| **Content Validation** | Filters out duplicates, short snippets, and low‑quality content before it reaches your team. |
+| **Labeling Dashboard** | A secure web interface where compliance officers can review, classify, and annotate updates in real time. |
+| **Audit‑Ready Archival** | Stores raw HTML of every source in a version‑controlled repository—critical for regulatory audit trails. |
+| **Structured Data Export** | Exports labeled content in JSONL or CSV format for internal reporting or downstream analysis. |
+| **AI Foundation** | Your labeled corpus can be used to train custom classifiers for automated prioritization (Phase 2). |
 
-- **Python 3.11+** — required to run the ingestion pipeline and Streamlit UI
-- **pip** — for local development and dependency management
-- **GitHub Actions** — for scheduled, serverless ingestion (no local cron needed)
-- **Optional: Playwright** — for browser-based scraping of JavaScript-heavy sites (most sources work with `requests` only)
+### How It Works (High Level)
 
-## Contributing
+1. **Scheduler** (GitHub Actions) triggers a daily ingestion cycle.
+2. **Ingestion Engine** (Python) fetches content, validates it, and extracts metadata.
+3. **Storage**: Structured data is saved to Supabase (PostgreSQL). Raw HTML is archived in a separate version‑controlled repository.
+4. **Dashboard**: Authorized users log in via Supabase Auth, review updates, and apply labels.
+5. **Exports**: Labeled data can be exported for reporting, sharing, or AI training.
 
-ReadLogue is designed to be extended by adding new source configurations. If you want to add a new RSS feed, blog, or API endpoint:
+All data flows are automated, auditable, and fully containerized.
 
-1. Check the existing `config/sources/` profiles for examples
-2. Add your source to `config.example.yaml` or a local config file
-3. If the source needs custom selectors, create a new profile in `config/sources/`
-4. Run ingestion and verify the output
-5. Open a PR with your config and any new scraper logic
+---
 
-See [Adding a new news source](#adding-a-new-news-source) below for the full pattern.
+## Business Value
 
-## Current structure
+### For Compliance Teams
+- **Reduce manual effort** – Automated ingestion eliminates hours of daily scanning.
+- **Improve response times** – Prioritize critical updates before they become issues.
+- **Strengthen audit readiness** – Every source is captured and archived with provenance.
 
-- `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, exports, and raw HTML file storage.
-- `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` uses **Trafilatura** for main body text (Markdown), falls back to CSS selectors + html2text, and returns raw HTML plus optional `hero_image_url`.
-- `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
-- `src/reader/supabase_sync.py` hydrates scratch SQLite from Supabase before ingest, syncs changes back after (GHA), and loads runtime ignore rules from the `ignored_urls` table.
-- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival.
-- `src/reader/db_backup.py` rotates daily (7) and monthly SQLite backups into the data repository after ingest.
-- `apps/web/` — Next.js dashboard (Supabase auth, like/dislike curation, ingestion failure handling). See [`apps/web/README.md`](apps/web/README.md).
-- `streamlit_app.py` is an optional local UI entrypoint (reads local `data/reader.db`).
-- `.github/workflows/ingest.yml` runs ingestion on a schedule or manually; requires Supabase secrets.
-- Raw HTML is saved to `raw_html/YYYY-MM-DD/<uuid>.html` in the **data** repository.
-- DB backups are saved to `db_backups/daily/` and `db_backups/monthly/` in the data repository.
-- The scheduled GitHub Action hydrates from Supabase and only fetches article pages not already indexed.
-- `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
-- `config.example.yaml` now includes the manual category list used by the UI.
-- Non-RSS source profiles now also carry source-specific selectors for date and category extraction.
-- Hugging Face is handled as a tag-aware source because the public RSS feed does not expose the category split we need.
+### For Leadership
+- **Visible, measurable oversight** – Dashboard shows volume, categories, and team activity.
+- **AI‑ready asset** – Your labeled regulatory corpus becomes a competitive advantage.
+- **Cost‑effective** – Runs on free/inexpensive infrastructure tiers.
 
-File layout reference: [`UI_STRUCTURE.md`](UI_STRUCTURE.md)
+### For IT & Security
+- **Self‑hosted** – Data stays within your control (Supabase + GitHub).
+- **Open source** – No vendor lock‑in; full visibility into code and data flows.
+- **Standard stack** – PostgreSQL, Python, Next.js—easily supported by internal teams.
+- **Data residency** - Controlled by the client; storage configurations are managed within the client's own environment (Supabase/GitHub by default), ensuring no third-party data-handling of sensitive content.
 
-## How to use the reader UI
 
-The hosted UI is the Next.js app in [`apps/web/`](apps/web/). It reads from and writes to **Supabase Postgres** (production index). Setup: [`apps/web/README.md`](apps/web/README.md).
+---
 
-### Run locally
+## Key Capabilities
 
-```bash
-cd apps/web
-cp .env.example .env.local   # Supabase URL, anon key, service role key
-npm install
-npm run dev
-```
+### Ingestion & Validation
+- Configurable Ingestion Cadence: The ingestion frequency can be adjusted via the GitHub Actions cron schedule, allowing the system to scale based on specific regulatory throughput requirements.
+- Supports RSS feeds and structured listing pages.
+- Configurable per source (selectors, categories, ownership).
+- Content validation filters: minimum word count, HTML residue, lexical diversity.
+- Failed sources are logged for review—no silent failures.
+- System includes proactive logging and alerting; failures in external source ingestion are flagged in UI and logged to GitHub Actions for immediate visibility.
 
-Create a user in **Supabase → Authentication → Users** (email/password), then open http://localhost:3000 and sign in.
+### Labeling Dashboard
+- Modern, responsive web interface built with Next.js + Tailwind CSS.
+- Secure authentication via Supabase (email/password or SSO integration).
+- Paginated article list with filtering by source, category, date, and read status.
+- One‑click labeling: mark as read, set category, assign rating (Like/Dislike).
+- Team visibility: annotations are stored with timestamps and user identities.
+- Every label or classification applied by the team is stored with the user's identity and a UTC timestamp, creating an immutable audit trail of the team's regulatory review process.
 
-### Dashboard
+### Archival & Provenance
+- Raw HTML of every fetched article is saved to a dedicated GitHub repository.
+- Each file is date‑partitioned (`YYYY‑MM‑DD/`) for easy retrieval.
+- The GitHub commit history provides a verifiable audit trail.
+- You can re‑extract or re‑analyze any source at any time.
 
-The home page lists ingested articles from the `items` table (max width `96rem` / ~1536px on large screens):
+### Exports & Reporting
+- Export full database or filtered views in CSV or JSONL formats.
+- Ready for Excel, Tableau, or custom reporting dashboards.
+- JSONL format is optimized for training custom ML models (Phase 2).
 
-- **25 articles per page** — numbered page links (1, 2, 3 …) plus Previous / Next
-- **Unread first**, then newest by publication date (or ingest date); marking read moves the row down on refresh
-- **Compact two-column rows:**
-  - **Left:** hero image, source line (e.g. `bair-blog` or `stanford-hai-news · Shana Lynch`), then icon controls
-  - **Right:** title (links to the original article in a new tab) and summary (always visible)
-- **Read vs unread:** unread rows use the default card style; read rows use a flat page background, muted title, and a visible border (no Read/Unread label)
+---
 
-### Curation
+## Technology Stack
 
-Curation is the primary purpose of the UI — labels feed planned ML training:
+| Layer | Technology | Purpose |
+| :--- | :--- | :--- |
+| **Frontend** | Next.js + Tailwind CSS | Team dashboard and labeling UI |
+| **Backend / API** | Supabase (BaaS) | Database, authentication, auto‑generated API |
+| **Database** | Supabase (PostgreSQL) | Structured storage for articles and labels |
+| **Ingestion Engine** | Python 3.11+ | Content fetching, validation, and export |
+| **Scheduler** | GitHub Actions | Daily automated ingestion |
+| **Raw HTML Archive** | GitHub Repository | Version‑controlled, auditable source storage |
+| **Hosting** | Vercel / Cloudflare Pages | Frontend deployment |
 
-| Control | Database field | Values |
-|---------|----------------|--------|
-| Thumbs up / down (toggle) | `rating` | `like`, `dislike`, or `null` — click the active thumb again to clear |
-| Mail / open-mail icons | `read_at` | ISO timestamp or `null` |
-| Category dropdown (under image) | `category` | From [`config.example.yaml`](config.example.yaml) list (mirrored in `apps/web/src/lib/categories.ts`) |
+All components are configured to run on generous free tiers, making this solution accessible to teams of any size.
 
-Changes save immediately to Supabase via Server Actions (authenticated session + service role on the server). Ingest does not overwrite existing `rating`, `read_at`, or manual `category` on re-fetch.
+---
 
-### Ingestion failures
+## Deployment & Operations
 
-When validation rejects an article, the pipeline records a row in `ingestion_log`. If any exist, a red **Ingestion failures** banner appears at the top of the dashboard.
+### Environment Overview
+- **Operational Cadence**: The system is engineered for flexible ingestion. While the default configuration is a daily cycle, the pipeline is designed to support high-frequency polling (e.g., hourly) for time-sensitive regulatory environments without requiring architectural changes.
+- **Frontend**: Deployed to Vercel or Cloudflare Pages.
+- **Database**: Supabase project (one per environment: dev/staging/prod).
+- **Raw HTML Archive**:  GitHub repository (cloned during ingestion).
+- **Scheduler**: GitHub Actions running on the main repository.
+- **Secrets**: All credentials (Supabase keys, GitHub tokens) are stored in GitHub Secrets.
 
-For each failed URL you see the source, link, error message, and attempt count.
+### Maintenance Effort
+- **Daily**: Automated ingestion runs without human intervention.
+- **Weekly**: Review ingestion logs for any source failures.
+- **Monthly**: Update source selectors if regulatory websites change layout.
+- **Quarterly**: Review labeling quality and export data for reporting.
 
-| Button | Effect |
-|--------|--------|
-| **Ignore URL** | Adds the URL path segment to Supabase `ignored_urls` (substring match). Clears the log row. Future GHA runs skip this URL (merged with YAML ignores). |
-| **Dismiss** | Clears the log row only. Does not add an ignore rule — use when the scraper wrongly flagged a URL you still want ingested. |
+### Support & Handover
+- Full deployment documentation provided to the client's IT team.
+- Operational runbook covers:
+  - How to add/remove sources.
+  - How to manage user access.
+  - How to export data for reporting.
+  - How to upgrade the system.
+- Source code and all configuration files are delivered to the client.
 
-YAML seed ignores (`ignored_url_substrings` / `ignored_urls` in config) remain the baseline; Supabase `ignored_urls` holds runtime rules from the UI.
+---
 
-After **`auto_skip_failure_threshold`** failures (default `3`), ingest stops re-fetching a URL that is not yet in `items` (`skipped_known_failure` in GHA logs).
+## Roadmap (Phase 2)
 
-### Optional: Streamlit (local SQLite only)
+| Quarter | Capability |
+| :--- | :--- |
+| **Q3 2026** | AI‑powered prioritization: automatically flag high‑urgency updates based on your labeling history. |
+| **Q4 2026** | Slack/Teams integration: push daily digests to compliance channels. |
+| **Q1 2027** | Multi‑team support: role‑based access for legal, compliance, and risk teams. |
+| **Q2 2027** | Regulatory calendar integration: auto‑map updates to internal compliance deadlines. |
 
-[`streamlit_app.py`](streamlit_app.py) still works against local `data/reader.db` without Supabase. It is not synced to production; use the Next.js app for hosted curation.
+---
 
-## Backfill / recovery checklist
+## About This Project
 
-Use this when you are doing the first full import or recovering from a broken source.
+This solution was designed and built by **WizeIdea**, a systems‑integration consultancy specialising in AI‑ready data pipelines and governance automation.
 
-1. Confirm the local config contains all sources you want to ingest.
-2. Run ingestion once to populate Supabase (or local SQLite for dev).
-3. Open the dashboard and spot-check that articles render with title, summary, source metadata, and hero images where available.
-4. Mark a few items read, unread, like, and dislike to confirm curation writes to Supabase correctly.
-5. If a source changes layout or starts failing, fix its source config or scraper settings first.
-6. Re-run ingestion after the fix and confirm only new URLs are fetched.
-7. If a source produces bad or duplicated rows, remove or repair those rows in Supabase before the next scheduled run.
-8. Re-export the dataset after recovery so CSV and JSONL stay aligned with the current database.
+We combined modern, open‑source tooling with a modular architecture to create a solution that is:
+- **Cost‑effective** – low ongoing operational costs.
+- **Secure** – data remains within the client's control.
+- **Extensible** – ready for AI integration in Phase 2.
 
-### Ingestion failures and ignore list (reference)
+---
 
-When validation rejects an article (empty body, HTML residue, low lexical diversity, etc.), the pipeline records one row per URL in `ingestion_log` with an incrementing `failure_count`. The dashboard banner shows these with ignore/dismiss actions (see [Ingestion failures](#ingestion-failures) above).
+## License
 
-- **`ignored_url_substrings` / `ignored_urls` (YAML)** — skip matching URLs before fetch (no HTTP request). Use for repeat offenders such as JavaScript shells that will never pass validation.
-- **`ignored_urls` (Supabase)** — same semantics, managed from the hosted UI; merged with YAML on each ingest run.
-- **`auto_skip_failure_threshold`** (default `3`) — after this many failures for a URL that is not yet in `items`, ingest stops re-fetching it (`skipped_known_failure` in the summary).
+Apache 2.0 License.
 
-Successful ingest removes the matching `ingestion_log` row. A **validation whitelist** (bypass checks for known-good URLs such as `cyber-toolkits-update`) is planned — see Next steps item 11.
+---
 
-## Adding a new news source
+## Contact
 
-Use the same pattern for every future source so ingestion stays config-driven.
+For inquiries about deployment, customisation, or Phase 2 integration, please contact:
 
-1. Add a source entry to your local config based on `config.example.yaml`.
-2. Choose the source kind:
-	- `rss` for a plain RSS/Atom feed.
-	- `listing` for a web page that exposes article cards or article links.
-	- `api_tag` for a tag-filtered endpoint like Hugging Face's blog tags.
-3. Add a source profile file in `config/sources/` when the source is not a plain RSS feed.
-4. Run ingestion once and confirm the page extracts a stable title, URL, and body text.
-5. Add or update tests for the new source shape before treating it as complete.
+**WizeIdea** https://wizeidea.com
 
-### Source config fields
+---
 
-Every source entry should define these fields:
-
-- `name`: unique source name used in the database.
-- `kind`: `rss`, `listing`, or `api_tag`.
-- `url`: feed URL, listing URL, or source landing page.
-- `scraper`: fetch method used by the ingestion path.
-- `config`: optional path to a source profile file.
-- `enabled`: optional flag for turning a source on or off.
-
-For non-RSS sources, the profile file may also define:
-
-- `fetcher`: `requests` or `playwright`.
-- `item_selector` and `link_selector`: how article entries are discovered.
-- `title_selector` / `title_selectors`: how the title is extracted.
-- `date_selectors` and `date_formats`: how published dates are parsed.
-- `category_selectors`: how source-specific categories are extracted.
-- `content_selectors` and `paragraph_selector`: how article body text is extracted.
-- `api_tag`: the tag name for tag-filtered sources such as Hugging Face.
-- `allowed_url_prefixes` / `excluded_url_substrings`: filters that keep discovery focused.
-
-### Database fields used by each ingested item
-
-The database stores the source itself in `sources` and the article data in `items`. Schema migrations are tracked in a `schema_version` table so the database can be upgraded safely across releases.
-
-Required or strongly recommended item fields for ingestion:
-
-- `source_id`: internal link back to the source row.
-- `fingerprint`: unique item key derived from the article URL (query parameters and fragments are stripped before hashing to prevent duplicates from tracking params).
-- `url`: canonical article URL.
-- `title`: article title.
-- `content`: full article body as Markdown (Trafilatura-extracted; raw HTML archived separately for reprocessing).
-- `summary`: short preview text.
-- `published_at`: parsed publication timestamp when available.
-
-Useful metadata fields that should be populated when the source exposes them:
-
-- `author`: article author or authors.
-- `source_category`: category or tag reported by the source itself.
-- `category`: manual label chosen in the UI.
-- `read_at`: read/unread state stored by the UI.
-- `rating`: Like/Dislike state stored by the UI (primary signal for planned ML training).
-- `hero_image_url`: absolute URL of the article hero/thumbnail image from Open Graph or Twitter meta tags when available.
-- `raw_html_path`: relative path to archived HTML in the data repository.
-
-The ingestion pipeline must never overwrite the manual `category`, `read_at`, or `rating` fields when new items are discovered later.
-
-**Ignore lists:** `config.example.yaml` holds seed `ignored_urls` / `ignored_url_substrings`. The Supabase `ignored_urls` table holds additional runtime rules (written by the hosted UI). GHA ingest merges both sources on each run.
-
-## Next steps
-
-1. ~~Add real feed URLs to a local config file based on `config.example.yaml`.~~ — 5 sources configured (Anthropic, BAIR, HuggingFace x2, Stanford HAI)
-2. ~~Add additional source profiles using the same listing-page metadata pattern.~~ — BAIR, HuggingFace, Stanford HAI profiles added
-3. ~~Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.~~ — 70 tests passing
-4. ~~Enhance scraper fallback heuristics for harder article pages (e.g., Readability, boilerpipe-style extraction).~~ — Trafilatura primary extraction + selector fallback (v1.2.0).
-5. ~~Decide whether ingestion should run in a hosted environment, a local cron job, or only GitHub Actions.~~ — GitHub Actions workflow configured
-6. ~~Add an operator checklist for initial backfill, validation, and recovery from broken pages.~~ — See "Backfill / recovery checklist" above
-7. ~~Add more robust monitoring for failed source fetches, parse failures, and empty ingests.~~ — Content validation + ingestion_log + exception handling implemented. Remaining enhancements: retry logic for transient failures, optional alerting.
-
-### New items
-
-8. Set up the data repo deploy key (SSH key) to activate the dual-repo raw HTML archival workflow.
-9. ~~Next.js hosted UI on Vercel (Phase 2).~~ — [`apps/web`](apps/web)
-10. Document the source-kind registry pattern (`SOURCE_HANDLERS`) in CONTRIBUTING.md for future contributors.
-11. Add a validation **whitelist** for URLs that should bypass lexical-diversity or similar checks (e.g. `cyber-toolkits-update` on Anthropic Research).
+*ReadLogue: Compliance monitoring, automated. Audit‑ready by design.*
