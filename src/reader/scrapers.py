@@ -408,6 +408,7 @@ def _fetch_article(
             fetcher=profile.fetcher,
             title_selector=profile.title_selector,
             content_selectors=profile.content_selectors,
+            content_root_selector=profile.content_root_selector,
             paragraph_selector=profile.paragraph_selector,
             content_clean=clean_rules,
         )
@@ -679,6 +680,7 @@ def extract_article(
     fetcher: str = "requests",
     title_selector: str | None = None,
     content_selectors: tuple[str, ...] = (),
+    content_root_selector: str | None = None,
     paragraph_selector: str = "article p, main p, p",
     timeout: int = 15,
     *,
@@ -704,6 +706,7 @@ def extract_article(
         url,
         soup,
         content_selectors=content_selectors,
+        content_root_selector=content_root_selector,
         paragraph_selector=paragraph_selector,
     )
 
@@ -920,8 +923,14 @@ def _extract_main_content(
     soup: BeautifulSoup,
     *,
     content_selectors: tuple[str, ...] = (),
+    content_root_selector: str | None = None,
     paragraph_selector: str = "article p, main p, p",
 ) -> str:
+    if content_root_selector:
+        content = _extract_content_from_root(soup, content_root_selector)
+        if content and len(content.strip()) >= _TRAFILATURA_MIN_CHARS:
+            return content
+
     content = _extract_with_trafilatura(html, url)
     if content:
         return content
@@ -947,6 +956,27 @@ def _extract_main_content(
             paragraph_html = "<div>" + "".join(str(p) for p in paragraphs) + "</div>"
             content = _html_to_markdown(paragraph_html)
     return content
+
+
+def _extract_content_from_root(soup: BeautifulSoup, selector: str) -> str:
+    node = soup.select_one(selector)
+    if node is None:
+        return ""
+
+    BeautifulSoup = _load_beautifulsoup()
+    fragment = BeautifulSoup(str(node), "html.parser")
+    root = fragment.select_one(selector) or fragment
+    for tag in root.select(
+        ".not-prose, .SVELTE_HYDRATER, nav, iframe, script, style, noscript, [class*='copiable']"
+    ):
+        tag.decompose()
+    for anchor in root.select('a[href="/blog"]'):
+        parent = anchor.parent
+        if parent is not None and parent.name == "div":
+            parent.decompose()
+
+    markdown = _html_to_markdown(str(root))
+    return _strip_embed_markup(markdown)
 
 
 def _extract_content_from_selectors(soup: BeautifulSoup, selectors: tuple[str, ...]) -> str:

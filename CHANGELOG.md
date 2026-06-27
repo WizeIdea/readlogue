@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] - 2026-06-27
+
+### Added
+- `content_root_selector` on listing source profiles — prefer a DOM subtree (e.g. Hugging Face `.blog-content`) before Trafilatura
+- Hugging Face `huggingface-research` and `huggingface-ethics` profiles use `.blog-content` extraction plus model-card / GitHub-link cleanup rules
+
+### Fixed
+- Hugging Face blog posts no longer start with sidebar model-card banners or drop the opening paragraph text before inline links
+
 ## [1.3.0] - 2026-06-27
 
 ### Added

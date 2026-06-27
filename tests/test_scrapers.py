@@ -224,6 +224,30 @@ class ScraperDiscoveryTests(unittest.TestCase):
 
 
 class TrafilaturaExtractionTests(unittest.TestCase):
+    def _hf_blog_html(self, *, intro: str, body: str) -> str:
+        return f"""
+        <html>
+          <body>
+            <aside>
+              <article class="overview-card-wrapper">
+                <a href="https://huggingface.co/papers/2502.02649">
+                  Paper • 2502.02649 • Published • 36
+                </a>
+              </article>
+            </aside>
+            <div class="blog-content prose">
+              <div class="not-prose mb-6 font-sans xl:hidden">Upvote 42 +36</div>
+              <div class="mb-4"><a href="/blog">Back to Articles</a></div>
+              <h1>Cybersecurity and Openness</h1>
+              <div>Published April 21, 2026</div>
+              <p>{intro}</p>
+              <h2>What is Mythos?</h2>
+              <p>{body}</p>
+            </div>
+          </body>
+        </html>
+        """
+
     def _article_paragraphs(self) -> str:
         return " ".join(
             [
@@ -270,6 +294,60 @@ class TrafilaturaExtractionTests(unittest.TestCase):
         self.assertNotIn("Back to Articles", content)
         self.assertNotIn("Upvote 42", content)
         self.assertNotIn("Share on x.com", content)
+
+    def test_extract_content_from_root_preserves_hf_intro_with_links(self) -> None:
+        from reader.scrapers import _extract_content_from_root, _extract_main_content, _load_beautifulsoup
+
+        intro = (
+            'Following the announcement of '
+            '<a href="https://www.anthropic.com/glasswing">Mythos and Project Glasswing</a>, '
+            "institutions throughout the world are grappling with the potential dawn of a new era "
+            "of cybersecurity."
+        )
+        body = self._article_paragraphs()
+        html = self._hf_blog_html(intro=intro, body=body)
+        soup = _load_beautifulsoup()(html, "html.parser")
+
+        content = _extract_content_from_root(soup, ".blog-content")
+
+        self.assertIn("Following the announcement of", content)
+        self.assertIn("Mythos and Project Glasswing", content)
+        self.assertIn("institutions throughout the world", content)
+        self.assertNotIn("Paper • 2502.02649", content)
+        self.assertNotIn("Upvote 42", content)
+        self.assertNotIn("Back to Articles", content)
+
+    def test_extract_main_content_prefers_content_root_selector(self) -> None:
+        from reader.scrapers import _extract_main_content, _load_beautifulsoup
+
+        intro = (
+            'On March 14, we submitted Hugging Face\'s response to the White House Office of '
+            'Science and Technology Policy\'s request for information on the '
+            '<a href="https://www.whitehouse.gov/plan">White House AI Action Plan</a>. '
+            "We took this opportunity to assert the role of open AI systems."
+        )
+        body = self._article_paragraphs()
+        html = self._hf_blog_html(intro=intro, body=body)
+        soup = _load_beautifulsoup()(html, "html.parser")
+        url = "https://huggingface.co/blog/ai-action-wh-2025"
+
+        with patch("reader.scrapers._extract_with_trafilatura") as trafilatura_mock:
+            trafilatura_mock.return_value = (
+                "[ Paper • 2502.02649 • Published • 36 ](https://huggingface.co/papers/2502.02649)\n\n"
+                "[White House AI Action Plan](https://www.whitehouse.gov/plan). "
+                "We took this opportunity to assert the role of open AI systems."
+            )
+            content = _extract_main_content(
+                html,
+                url,
+                soup,
+                content_root_selector=".blog-content",
+            )
+
+        trafilatura_mock.assert_not_called()
+        self.assertIn("On March 14, we submitted Hugging Face's response", content)
+        self.assertIn("White House AI Action Plan", content)
+        self.assertNotIn("Paper • 2502.02649", content)
 
     def test_extract_main_content_falls_back_to_selectors(self) -> None:
         from reader.scrapers import _load_beautifulsoup

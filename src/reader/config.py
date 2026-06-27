@@ -41,6 +41,7 @@ class ListingSourceProfile:
     date_formats: tuple[str, ...] = ()
     category_selectors: tuple[str, ...] = ()
     content_selectors: tuple[str, ...] = ()
+    content_root_selector: str | None = None
     paragraph_selector: str = "article p, main p, p"
     max_links: int = 25
     content_clean: ContentCleanRules = ContentCleanRules()
@@ -112,6 +113,9 @@ def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:
         date_formats=tuple(str(value) for value in raw.get("date_formats", [])),
         category_selectors=tuple(str(value) for value in raw.get("category_selectors", [])),
         content_selectors=tuple(str(value) for value in raw.get("content_selectors", [])),
+        content_root_selector=(
+            str(raw["content_root_selector"]) if raw.get("content_root_selector") else None
+        ),
         paragraph_selector=str(raw.get("paragraph_selector", "article p, main p, p")),
         max_links=int(raw.get("max_links", 25)),
         content_clean=load_content_clean_rules(raw),
