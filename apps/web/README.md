@@ -23,5 +23,6 @@ Open [http://localhost:3000](http://localhost:3000).
 ## Structure
 
 - `src/app/globals.css` — all visual design (light + dark via `prefers-color-scheme`)
-- `src/components/*.tsx` — layout and content wiring
+- `src/components/*.tsx` — layout and content wiring (compact sidebar + icon curation)
+- `src/components/pagination.tsx` — numbered page navigation
 - `src/lib/items.ts` — Supabase queries and patches (shared with future API routes)

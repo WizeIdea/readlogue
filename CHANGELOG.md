@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-06-27
+
+### Added
+- [`components/pagination.tsx`](apps/web/src/components/pagination.tsx) — clickable page numbers plus Previous / Next
+
+### Changed
+- Dashboard compact layout: left sidebar (hero image, source meta, icon actions); right column (title, always-visible summary)
+- Read articles styled via `.article-row--read` only (page background, muted title); unread rows unchanged
+- Curation controls use icon buttons (thumbs up/down, mail read/unread) instead of text labels
+- Removed collapsible summary and Read/Unread text from article rows
+- Tighter vertical spacing across article list and main content area
+
 ## [1.2.0] - 2026-06-27
 
 ### Added

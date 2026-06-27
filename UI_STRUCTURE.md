@@ -47,7 +47,7 @@ Setup: [`supabase/README.md`](supabase/README.md)
 
 | Path | File | Purpose |
 |------|------|---------|
-| `/` | `src/app/(main)/page.tsx` | Dashboard — article list, pagination, failure banner |
+| `/` | `src/app/(main)/page.tsx` | Dashboard — article list, failure banner, pagination |
 | `/login` | `src/app/login/page.tsx` | Email/password sign-in |
 | `POST /api/ignore` | `src/app/api/ignore/route.ts` | Add substring to `ignored_urls`; clear log row |
 | `POST /api/dismiss-failure` | `src/app/api/dismiss-failure/route.ts` | Clear log row without ignoring |
@@ -68,8 +68,9 @@ Setup: [`supabase/README.md`](supabase/README.md)
 | `src/components/header.tsx` | App title, tagline, sign out |
 | `src/components/login-form.tsx` | Email/password form (client) |
 | `src/components/article-list.tsx` | Renders list of `ArticleRow` |
-| `src/components/article-row.tsx` | One article: thumb, title link, meta, collapsible summary |
-| `src/components/article-actions.tsx` | Like, dislike, read/unread, category select (client) |
+| `src/components/article-row.tsx` | Compact row: left sidebar (thumb, source meta, icon actions), right column (title, summary) |
+| `src/components/article-actions.tsx` | Thumbs up/down, mail read/unread icons, category select (sidebar stack) |
+| `src/components/pagination.tsx` | Previous, numbered pages, Next, article count |
 | `src/components/failure-banner.tsx` | Top-of-page ingestion failure alerts |
 | `src/components/failure-actions.tsx` | Ignore / Dismiss buttons per failure (client) |
 

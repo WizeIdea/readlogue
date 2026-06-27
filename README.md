@@ -128,23 +128,22 @@ Create a user in **Supabase → Authentication → Users** (email/password), the
 
 The home page lists ingested articles from the `items` table:
 
-- **25 articles per page** — Previous / Next at the bottom
-- **Unread first**, then newest by publication date (or ingest date)
-- Each row shows:
-  - **Hero image** (`hero_image_url`) when ingest captured Open Graph / Twitter meta
-  - **Title** — links to the original article (opens in a new tab; read the article there)
-  - **Source name** and source category, plus read/unread status
-  - **Summary** — click “Summary” to expand or collapse the preview text
+- **25 articles per page** — numbered page links (1, 2, 3 …) plus Previous / Next
+- **Unread first**, then newest by publication date (or ingest date); marking read moves the row down on refresh
+- **Compact two-column rows:**
+  - **Left:** hero image, source line (e.g. `bair-blog` or `stanford-hai-news · Shana Lynch`), then icon controls
+  - **Right:** title (links to the original article in a new tab) and summary (always visible)
+- **Read vs unread:** unread rows keep the default card style; read rows blend with the page background and use a muted title (no Read/Unread label)
 
 ### Curation
 
 Curation is the primary purpose of the UI — labels feed planned ML training:
 
-| Action | Database field | Values |
-|--------|----------------|--------|
-| **Like** / **Dislike** | `rating` | `like`, `dislike` |
-| **Mark read** / **Mark unread** | `read_at` | ISO timestamp or `null` |
-| **Category** dropdown | `category` | From [`config.example.yaml`](config.example.yaml) list (mirrored in `apps/web/src/lib/categories.ts`) |
+| Control | Database field | Values |
+|---------|----------------|--------|
+| Thumbs up / down | `rating` | `like`, `dislike` |
+| Mail / open-mail icons | `read_at` | ISO timestamp or `null` |
+| Category dropdown (under image) | `category` | From [`config.example.yaml`](config.example.yaml) list (mirrored in `apps/web/src/lib/categories.ts`) |
 
 Changes save immediately to Supabase via Server Actions (authenticated session + service role on the server). Ingest does not overwrite existing `rating`, `read_at`, or manual `category` on re-fetch.
 

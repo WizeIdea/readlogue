@@ -1,5 +1,7 @@
 "use client";
 
+import { Mail, MailOpen, ThumbsDown, ThumbsUp } from "lucide-react";
+
 import { setCategory, setRating, setRead } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,44 +18,63 @@ type Props = {
   item: ItemRow;
 };
 
-
 const categoryOptions = [UNCATEGORIZED, ...CATEGORIES];
 
 export function ArticleActions({ item }: Props) {
   const currentCategory = item.category ?? UNCATEGORIZED;
+  const isRead = Boolean(item.read_at);
 
   return (
     <div className="article-actions">
-      <form action={setRating.bind(null, item.id, "like")}>
-        <Button
-          type="submit"
-          size="sm"
-          variant="outline"
-          className={item.rating === "like" ? "btn-like-active" : undefined}
-        >
-          Like
-        </Button>
-      </form>
-      <form action={setRating.bind(null, item.id, "dislike")}>
-        <Button
-          type="submit"
-          size="sm"
-          variant="outline"
-          className={item.rating === "dislike" ? "btn-dislike-active" : undefined}
-        >
-          Dislike
-        </Button>
-      </form>
-      <form action={setRead.bind(null, item.id, true)}>
-        <Button type="submit" size="sm" variant="outline">
-          Mark read
-        </Button>
-      </form>
-      <form action={setRead.bind(null, item.id, false)}>
-        <Button type="submit" size="sm" variant="outline">
-          Mark unread
-        </Button>
-      </form>
+      <div className="article-actions-row">
+        <form action={setRating.bind(null, item.id, "like")}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className={`btn-icon ${item.rating === "like" ? "btn-like-active" : ""}`}
+            aria-label="Like"
+          >
+            <ThumbsUp size={16} aria-hidden />
+          </Button>
+        </form>
+        <form action={setRating.bind(null, item.id, "dislike")}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className={`btn-icon ${item.rating === "dislike" ? "btn-dislike-active" : ""}`}
+            aria-label="Dislike"
+          >
+            <ThumbsDown size={16} aria-hidden />
+          </Button>
+        </form>
+      </div>
+
+      <div className="article-actions-row">
+        <form action={setRead.bind(null, item.id, true)}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className="btn-icon"
+            aria-label="Mark read"
+          >
+            <Mail size={16} aria-hidden />
+          </Button>
+        </form>
+        <form action={setRead.bind(null, item.id, false)}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            className={`btn-icon ${isRead ? "btn-read-active" : ""}`}
+            aria-label="Mark unread"
+          >
+            <MailOpen size={16} aria-hidden />
+          </Button>
+        </form>
+      </div>
 
       <Select
         value={currentCategory}
@@ -62,7 +83,7 @@ export function ArticleActions({ item }: Props) {
           void setCategory(item.id, category);
         }}
       >
-        <SelectTrigger aria-label="Category">
+        <SelectTrigger className="select-trigger-sidebar" aria-label="Category">
           <SelectValue placeholder="Category" />
         </SelectTrigger>
         <SelectContent>
