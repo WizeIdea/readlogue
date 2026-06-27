@@ -178,7 +178,16 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertIn("More text", cleaned)
 
     @patch("reader.scrapers.feedparser")
-    def test_parse_rss_feed_normalizes_trailing_slash_urls(self, feedparser_mock: Mock) -> None:
+    @patch("reader.scrapers.requests.get")
+    def test_parse_rss_feed_normalizes_trailing_slash_urls(
+        self, requests_get: Mock, feedparser_mock: Mock
+    ) -> None:
+        response = Mock()
+        response.content = b"<rss></rss>"
+        response.status_code = 200
+        response.raise_for_status.return_value = None
+        requests_get.return_value = response
+
         entry = Mock()
         entry.get = lambda key, default=None: {
             "link": "https://example.com/post/",
@@ -200,7 +209,16 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertEqual(articles[0].url, "https://example.com/post")
 
     @patch("reader.scrapers.feedparser")
-    def test_parse_rss_feed_respects_max_entries(self, feedparser_mock: Mock) -> None:
+    @patch("reader.scrapers.requests.get")
+    def test_parse_rss_feed_respects_max_entries(
+        self, requests_get: Mock, feedparser_mock: Mock
+    ) -> None:
+        response = Mock()
+        response.content = b"<rss></rss>"
+        response.status_code = 200
+        response.raise_for_status.return_value = None
+        requests_get.return_value = response
+
         def make_entry(index: int) -> Mock:
             entry = Mock()
             entry.get = lambda key, default=None, i=index: {

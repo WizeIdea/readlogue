@@ -10,6 +10,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 ENGINEERING_RULES = load_listing_profile(REPO_ROOT / "config/sources/anthropic-engineering.yaml").content_clean
 RESEARCH_RULES = load_listing_profile(REPO_ROOT / "config/sources/anthropic-research.yaml").content_clean
 NEWS_RULES = load_listing_profile(REPO_ROOT / "config/sources/anthropic-news.yaml").content_clean
+FRONTIER_RULES = load_listing_profile(REPO_ROOT / "config/sources/anthropic-frontier-red-team.yaml").content_clean
 
 
 class ContentCleanTests(unittest.TestCase):
@@ -17,6 +18,27 @@ class ContentCleanTests(unittest.TestCase):
         content = "## Get the developer newsletter\n\nWe built managed agents to help teams ship faster."
         cleaned = clean_content(content, ENGINEERING_RULES)
         self.assertEqual(cleaned, "We built managed agents to help teams ship faster.")
+
+    def test_engineering_strips_newsletter_tagline(self) -> None:
+        content = (
+            "Product updates, how-tos, community spotlights, and more. "
+            "Delivered monthly to your inbox.\n\n"
+            "Get started with Claude Managed Agents by following our docs."
+        )
+        cleaned = clean_content(content, ENGINEERING_RULES)
+        self.assertEqual(cleaned, "Get started with Claude Managed Agents by following our docs.")
+
+    def test_frontier_red_team_strips_newsletter_block(self) -> None:
+        content = (
+            "## Subscribe to the Frontier Red Team newsletter\n\n"
+            "Get updates on our latest red-teaming research and findings.\n\n"
+            "Claude Mythos Preview's ability to develop exploits is a step-change."
+        )
+        cleaned = clean_content(content, FRONTIER_RULES)
+        self.assertEqual(
+            cleaned,
+            "Claude Mythos Preview's ability to develop exploits is a step-change.",
+        )
 
     def test_research_strips_frontier_red_team_heading(self) -> None:
         content = "## Subscribe to the Frontier Red Team newsletter\n\nPhase two of Project Fetch."

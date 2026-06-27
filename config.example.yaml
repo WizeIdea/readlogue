@@ -20,46 +20,93 @@ categories:
   - Product Updates
   - Other
 sources:
+  # --- Batch 2+3 QA (enabled for next GHA) ---
+  - name: anthropic-engineering
+    kind: listing
+    url: https://www.anthropic.com/engineering
+    scraper: beautifulsoup
+    config: config/sources/anthropic-engineering.yaml
+
+  - name: anthropic-frontier-red-team
+    kind: listing
+    url: https://www.anthropic.com/research/team/frontier-red-team
+    scraper: beautifulsoup
+    config: config/sources/anthropic-frontier-red-team.yaml
+
+  - name: allenai-news
+    kind: rss
+    url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/allenai-news.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: AI News
+
+  - name: mistral-news
+    kind: rss
+    url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/mistral-news.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: AI News
+
+  - name: aisi-blog
+    kind: rss
+    url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/aisi-blog.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Governance and Policy
+
+  # turing.ac.uk uses Cloudflare; may 403 on requests — try once, disable if GHA fails
+  - name: turing-blog
+    kind: rss
+    url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/turing-blog.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Governance and Policy
+
+  - name: the-batch
+    kind: rss
+    url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/the-batch.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Research Digests
+
+  - name: tldr-ai
+    kind: rss
+    url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/tldr-ai.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Research Digests
+
+  # --- Batch 1 RSS (tested OK) — add enabled: true when re-ingesting ---
   - name: huggingface-blog
     kind: rss
     url: https://huggingface.co/blog/feed.xml
     scraper: rss
+    enabled: false
     config: config/sources/huggingface-blog.yaml
     settings:
       max_entries: 25
       default_category: AI News
 
-  - name: huggingface-ethics
-    kind: api_tag
-    url: https://huggingface.co/blog?tag=ethics
-    scraper: requests
-    config: config/sources/huggingface-ethics.yaml
-
-  - name: huggingface-research
-    kind: api_tag
-    url: https://huggingface.co/blog?tag=research
-    scraper: requests
-    config: config/sources/huggingface-research.yaml
-
   - name: microsoft-research-blog
     kind: rss
     url: https://www.microsoft.com/en-us/research/blog/feed/
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: Technical Research
-
-  - name: deepmind-google-blog
-    kind: rss
-    url: https://deepmind.google/blog/rss.xml
-    scraper: rss
-    settings:
-      max_entries: 25
 
   - name: openai-engineering
     kind: rss
     url: https://openai.com/news/engineering/rss.xml
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: Technical Research
@@ -68,6 +115,7 @@ sources:
     kind: rss
     url: https://openai.com/news/rss.xml
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: AI News
@@ -76,6 +124,7 @@ sources:
     kind: rss
     url: https://importai.substack.com/feed
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: Research Digests
@@ -84,6 +133,7 @@ sources:
     kind: rss
     url: https://www.nist.gov/news-events/news/rss.xml
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: Governance and Policy
@@ -92,42 +142,58 @@ sources:
     kind: rss
     url: https://www.nist.gov/news-events/information%20technology/rss.xml
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: Governance and Policy
+
+  # --- Other existing sources (tested OK) — add enabled: true when re-ingesting ---
+  - name: huggingface-ethics
+    kind: api_tag
+    url: https://huggingface.co/blog?tag=ethics
+    scraper: requests
+    enabled: false
+    config: config/sources/huggingface-ethics.yaml
+
+  - name: huggingface-research
+    kind: api_tag
+    url: https://huggingface.co/blog?tag=research
+    scraper: requests
+    enabled: false
+    config: config/sources/huggingface-research.yaml
+
+  - name: deepmind-google-blog
+    kind: rss
+    url: https://deepmind.google/blog/rss.xml
+    scraper: rss
+    enabled: false
+    settings:
+      max_entries: 25
 
   - name: anthropic-research
     kind: listing
     url: https://www.anthropic.com/research
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/anthropic-research.yaml
-
-  - name: anthropic-engineering
-    kind: listing
-    url: https://www.anthropic.com/engineering
-    scraper: beautifulsoup
-    config: config/sources/anthropic-engineering.yaml
 
   - name: anthropic-news
     kind: listing
     url: https://www.anthropic.com/news
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/anthropic-news.yaml
-
-  - name: anthropic-frontier-red-team
-    kind: listing
-    url: https://www.anthropic.com/research/team/frontier-red-team
-    scraper: beautifulsoup
-    config: config/sources/anthropic-frontier-red-team.yaml
 
   - name: stanford-hai-news
     kind: listing
     url: https://hai.stanford.edu/news
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/stanford-hai-news.yaml
 
   - name: bair-blog
     kind: listing
     url: https://bair.berkeley.edu/blog/
     scraper: requests
+    enabled: false
     config: config/sources/bair-blog.yaml

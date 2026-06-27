@@ -36,3 +36,4 @@ max_links: 25
 content_clean:
   strip_leading_lines_matching:
     - '(?i)^##\s+Get the developer newsletter\s*$'
+    - '(?i)^Product updates, how-tos, community spotlights, and more\. Delivered monthly to your inbox\.\s*$'

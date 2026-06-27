@@ -491,7 +491,19 @@ SOURCE_HANDLERS = {
 
 
 def parse_rss_feed(source_name: str, source_url: str, *, max_entries: int = 25) -> list[ArticleRecord]:
-    parsed = feedparser.parse(source_url)
+    import logging
+
+    logger = logging.getLogger(__name__)
+    response = requests.get(source_url, timeout=15, headers={"User-Agent": "reader/0.1.0"})
+    response.raise_for_status()
+    parsed = feedparser.parse(response.content)
+    if not parsed.entries:
+        logger.warning(
+            "RSS feed '%s' returned no entries (status=%s, bozo=%s)",
+            source_name,
+            response.status_code,
+            parsed.bozo,
+        )
     articles: list[ArticleRecord] = []
     for entry in parsed.entries[:max_entries]:
         link = entry.get("link", "").strip()

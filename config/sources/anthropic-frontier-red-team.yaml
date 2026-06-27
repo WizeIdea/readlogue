@@ -36,3 +36,7 @@ content_selectors:
   - div[class*="publication"]
 paragraph_selector: article p, main p, p
 max_links: 25
+content_clean:
+  strip_leading_lines_matching:
+    - '(?i)^#{0,2}\s*Subscribe to the Frontier Red Team newsletter\s*$'
+    - '(?i)^Get updates on our latest red-teaming research and findings\.\s*$'
