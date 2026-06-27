@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-06-27
+
+### Added
+- Supabase Postgres as production index: schema in `supabase/migrations/001_initial_schema.sql`
+- `src/reader/supabase_sync.py` — hydrate scratch SQLite from Supabase before ingest; sync back after
+- `supabase/README.md` with setup, secrets, and fresh-bootstrap cutover (including clearing data-repo `raw_html/`)
+
+### Changed
+- GitHub Actions ingest requires `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`; no longer commits `data/reader.db` to main
+- `data/reader.db` gitignored — ephemeral scratch file on GHA runners only
+- Local dev without Supabase env vars continues to use SQLite only
+
 ## [0.4.7] - 2026-06-27
 
 ### Added

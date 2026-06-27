@@ -37,6 +37,8 @@ jobs:
       - name: Run ingestion
         env:
           RAW_HTML_DIR: data-repo
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           python - <<'PY'
           import logging
@@ -45,12 +47,16 @@ jobs:
           logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
           from reader.ingest import ingest
+          from reader.supabase_sync import is_supabase_configured
+
+          if not is_supabase_configured():
+              raise SystemExit("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set")
 
           raw_dir = os.environ.get("RAW_HTML_DIR", "data-repo")
           ingest("config.example.yaml", raw_html_dir=raw_dir)
           PY
 
-      - name: Backup database to data repo
+      - name: Backup scratch database to data repo
         run: |
           python - <<'PY'
           import logging
@@ -68,14 +74,6 @@ jobs:
           PY
           ls -la data-repo/db_backups/daily/ || true
           ls -la data-repo/db_backups/monthly/ || true
-
-      - name: Commit and push database to main repo
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Automated: ingest DB update"
-          file_pattern: "data/reader.db"
-          commit_user_name: readlogue-bot
-          commit_user_email: bot@readlogue.local
 
       - name: Commit and push raw HTML and DB backups to data repo
         uses: stefanzweifel/git-auto-commit-action@v5

@@ -16,6 +16,7 @@ dependencies = [
   "requests>=2.31",
   "streamlit>=1.36",
   "PyYAML>=6.0",
+  "supabase>=2.0",
 ]
 
 [project.optional-dependencies]

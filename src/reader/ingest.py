@@ -6,6 +6,7 @@ from pathlib import Path
 from reader.config import load_config
 from reader.scrapers import SOURCE_HANDLERS, build_url_ignore_checker
 from reader.storage import IngestStats, connect, initialize, known_failed_fingerprints, upsert_article
+from reader.supabase_sync import hydrate_sqlite_from_supabase, is_supabase_configured, sync_sqlite_to_supabase
 
 logger = logging.getLogger(__name__)
 
@@ -15,6 +16,10 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
     initialize(config.database)
     stats = IngestStats()
     with connect(config.database) as connection:
+        if is_supabase_configured():
+            hydrate_sqlite_from_supabase(connection)
+            connection.commit()
+
         failed_fingerprints = known_failed_fingerprints(
             connection,
             min_failures=config.auto_skip_failure_threshold,
@@ -51,6 +56,9 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
                 if upsert_article(connection, article):
                     stats.new_db_rows += 1
         connection.commit()
+
+        if is_supabase_configured():
+            sync_sqlite_to_supabase(connection)
 
     logger.info(
         "Ingestion summary: skipped_existing=%d skipped_ignored=%d skipped_known_failure=%d "

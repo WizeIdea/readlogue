@@ -5,6 +5,7 @@ playwright>=1.40
 requests>=2.31
 streamlit>=1.36
 PyYAML>=6.0
+supabase>=2.0
 
 [dev]
 pytest>=8.0

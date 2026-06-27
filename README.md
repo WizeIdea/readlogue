@@ -12,43 +12,46 @@ Unlike traditional RSS readers that prioritize consumption, ReadLogue is built a
 In the age of AI, information overload is a technical problem, not just a lifestyle one. ReadLogue was built to solve the "RSS Bottleneck" and prepare for Machine Learning efficiencies.
 
 *   **Hybrid Ingestion:** Combines efficient feed-parsing (`feedparser`) with resilient site-scraping (`newspaper4k`) to create a single, unified data stream.
-*   **Decoupled Storage:** We separate the **index** (SQLite) from the **raw data** (HTML/Markdown stored in a separate data repository). This ensures the core application remains lightweight and fast, while the "Data Lake" scales independently.
+*   **Decoupled Storage:** We separate the **index** (Supabase Postgres) from the **raw HTML corpus** (GitHub data repository). Article Markdown lives in Postgres; bulk HTML stays out of Supabase to respect free-tier limits.
 *   **Researcher-First Design:** By persisting raw HTML/Markdown in a version-controlled, date-nested file structure, ReadLogue builds a "Ground Truth" dataset. This allows for reproducible experimentation, feature engineering, and training for future Deep Learning models.
-*   **Zero-Cost Infrastructure:** Built entirely on GitHub Actions, GitHub Pages, and SQLite, providing a permanent, serverless research environment.
+*   **Zero-Cost Infrastructure:** GitHub Actions for ingest, Supabase free tier for the index, GitHub for raw HTML archival.
 
 ## Data Pipeline
 1.  **Ingest:** GitHub Actions execute the Python pipeline daily, fetching content from configured URLs.
 2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) in the **data repository**.
-3.  **Index:** Metadata and labels (Read status, Rating, Category) are indexed in `data/reader.db` on the **main repository**, allowing for complex querying.
-4.  **Visualize:** A Streamlit-based UI serves as the curation layer, allowing manual tagging and classification—the critical "labeling" step for future ML pipelines.
+3.  **Index:** Metadata, clean Markdown content, and labels are stored in **Supabase Postgres** (production). A scratch SQLite file on the GHA runner is hydrated from Supabase before each run for dedup/skip logic.
+4.  **Visualize:** Streamlit (local) today; Next.js on Vercel planned for hosted curation.
 
 ## Storage layout
 
-ReadLogue splits the lightweight index from the large corpus:
-
-| Asset | Repository | Path |
+| Asset | Location | Path |
 |-------|------------|------|
-| Live SQLite index | **Main** (`readlogue`) | `data/reader.db` |
-| Raw HTML | **Data** (`readlogue_data_2026`) | `raw_html/YYYY-MM-DD/<uuid>.html` |
-| DB backups (daily + monthly) | **Data** (`readlogue_data_2026`) | `db_backups/daily/`, `db_backups/monthly/` |
+| Production index | **Supabase Postgres** | `sources`, `items`, `ingestion_log` |
+| Raw HTML | **Data repo** (`readlogue_data_2026`) | `raw_html/YYYY-MM-DD/<uuid>.html` |
+| Scratch SQLite (GHA only) | Ephemeral runner | `data/reader.db` (gitignored) |
+| SQLite file backups (optional) | **Data repo** | `db_backups/daily/`, `db_backups/monthly/` |
 
 ### Backup policy
 
-- **Git history** on the main repo is the default safety net for `data/reader.db` (every ingest commit keeps prior versions).
-- **Daily backups:** after each scheduled ingest, GHA copies the live DB to `db_backups/daily/reader-YYYY-MM-DD.db` in the data repo and retains the **7 most recent** daily files.
-- **Monthly backups:** on the 1st of each month, GHA also writes `db_backups/monthly/reader-YYYY-MM.db` in the data repo. Monthly files are **never deleted**.
+- **Supabase Postgres** is the production source of truth for the index and article Markdown.
+- **Daily backups:** after each ingest, GHA copies the scratch SQLite file to `db_backups/daily/reader-YYYY-MM-DD.db` in the data repo (7-day retention).
+- **Monthly backups:** on the 1st of each month, a monthly copy is written to `db_backups/monthly/`. Monthly files are **never deleted**.
+- **`data/reader.db` is not committed** to the main repo (avoids binary git bloat).
 
 ### GitHub Actions flow
 
 Each ingest job:
 
-1. Checks out the main repo (live `data/reader.db`) and the data repo (`data-repo/`).
-2. Runs ingestion — updates SQLite and writes new raw HTML under `data-repo/raw_html/`.
-3. Copies DB backups into `data-repo/db_backups/`.
-4. Commits `data/reader.db` to the **main** repo.
-5. Commits new HTML and backup files to the **data** repo.
+1. Checks out the main repo and the data repo (`data-repo/`).
+2. **Hydrates** scratch SQLite from Supabase (existing articles, failures, `raw_html_path` values).
+3. Runs ingestion — skips known URLs, fetches new articles, writes raw HTML under `data-repo/raw_html/`.
+4. **Syncs** scratch SQLite deltas back to Supabase.
+5. Copies optional SQLite backups to `data-repo/db_backups/`.
+6. Commits new HTML and backup files to the **data** repo.
 
-The Streamlit UI can update the same SQLite fields (`read_at`, `rating`, `category`) locally. Automatic sync of UI changes back to GitHub is planned for a later phase; until then, UI edits only affect a local checkout.
+Setup: see [`supabase/README.md`](supabase/README.md). Required secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_REPO_DEPLOY_KEY`.
+
+**Fresh bootstrap:** delete old `raw_html/` in the data repo and run `workflow_dispatch` once to repopulate Supabase and HTML cleanly.
 
 ## Intended Outcomes
 ReadLogue is designed to evolve with future ML projects:
@@ -58,7 +61,7 @@ ReadLogue is designed to evolve with future ML projects:
 
 ## Goals
 
-- Ingest RSS and scraped pages into a canonical SQLite database.
+- Ingest RSS and scraped pages into Supabase Postgres (production) with optional local SQLite for development.
 - Store full article text for later model training.
 - Allow read/unread and Like/Dislike state changes from a Streamlit web page.
 - Allow manual category labeling from a configurable select list.
@@ -90,15 +93,14 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 - `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, exports, and raw HTML file storage.
 - `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` returns both cleaned Markdown content and raw HTML for ML pipelines.
 - `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
-- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival. RSS sources now fetch the full article page for each entry, not just the feed summary. Uses a source-kind registry (`SOURCE_HANDLERS`) to dispatch to the appropriate handler without an `if/elif` chain.
-- CSV and JSONL export functions live in `src/reader/storage.py` (`export_csv`, `export_jsonl`).
+- `src/reader/supabase_sync.py` hydrates scratch SQLite from Supabase before ingest and syncs changes back after (GHA).
+- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival.
 - `src/reader/db_backup.py` rotates daily (7) and monthly SQLite backups into the data repository after ingest.
-- `streamlit_app.py` is the UI entrypoint; shows a red error banner for ingestion failures with an **Ignore** action to append URLs to the config blacklist.
-- `.github/workflows/ingest.yml` runs ingestion on a schedule or manually using a dual-repo checkout pattern.
-- The live SQLite index `data/reader.db` is committed to the **main** repository after each ingest.
-- Raw HTML is saved to `raw_html/YYYY-MM-DD/<uuid>.html` in the **data** repository (`WizeIdea/readlogue_data_2026`) via `stefanzweifel/git-auto-commit-action`.
-- DB backups are saved to `db_backups/daily/` and `db_backups/monthly/` in the same data repository.
-- The scheduled GitHub Action runs daily and only fetches article pages that are not already in SQLite.
+- `streamlit_app.py` is the local UI entrypoint (reads local `data/reader.db`; hosted UI planned via Next.js + Supabase).
+- `.github/workflows/ingest.yml` runs ingestion on a schedule or manually; requires Supabase secrets.
+- Raw HTML is saved to `raw_html/YYYY-MM-DD/<uuid>.html` in the **data** repository.
+- DB backups are saved to `db_backups/daily/` and `db_backups/monthly/` in the data repository.
+- The scheduled GitHub Action hydrates from Supabase and only fetches article pages not already indexed.
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
 - `config.example.yaml` now includes the manual category list used by the UI.
 - Non-RSS source profiles now also carry source-specific selectors for date and category extraction.

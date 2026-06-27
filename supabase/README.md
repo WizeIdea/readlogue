@@ -1,0 +1,26 @@
+# Supabase setup (Phase 1)
+
+Production index lives in Supabase Postgres. GitHub Actions hydrates a scratch SQLite file from Supabase at the start of each ingest run, then syncs changes back after ingest completes.
+
+## One-time setup
+
+1. Create a Supabase project.
+2. Run [`migrations/001_initial_schema.sql`](migrations/001_initial_schema.sql) in the Supabase SQL editor (or via CLI).
+3. Add GitHub Actions secrets on the main repo:
+   - `SUPABASE_URL` — project URL
+   - `SUPABASE_SERVICE_ROLE_KEY` — **service role** key (never expose to frontend)
+
+## Fresh bootstrap cutover
+
+Existing SQLite and raw HTML can be discarded; the first ingest repopulates everything.
+
+1. Apply the schema migration to an **empty** Supabase database.
+2. Merge Phase 1 code and add secrets.
+3. Delete `data/reader.db` from the main repo (no longer committed).
+4. In the **data repo**, delete `raw_html/` (and optionally old `db_backups/`) so HTML is rewritten cleanly on the first run.
+5. Trigger **workflow_dispatch** on the ingest workflow.
+6. Verify rows in Supabase Table Editor; run ingest again and confirm `skipped_existing` in logs.
+
+## Local development
+
+Without `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`, ingest uses local `data/reader.db` only (legacy behavior).

@@ -12,6 +12,7 @@ Requires-Dist: playwright>=1.40
 Requires-Dist: requests>=2.31
 Requires-Dist: streamlit>=1.36
 Requires-Dist: PyYAML>=6.0
+Requires-Dist: supabase>=2.0
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Dynamic: license-file
@@ -30,15 +31,46 @@ Unlike traditional RSS readers that prioritize consumption, ReadLogue is built a
 In the age of AI, information overload is a technical problem, not just a lifestyle one. ReadLogue was built to solve the "RSS Bottleneck" and prepare for Machine Learning efficiencies.
 
 *   **Hybrid Ingestion:** Combines efficient feed-parsing (`feedparser`) with resilient site-scraping (`newspaper4k`) to create a single, unified data stream.
-*   **Decoupled Storage:** We separate the **index** (SQLite) from the **raw data** (HTML/Markdown stored in a separate data repository). This ensures the core application remains lightweight and fast, while the "Data Lake" scales independently.
+*   **Decoupled Storage:** We separate the **index** (Supabase Postgres) from the **raw HTML corpus** (GitHub data repository). Article Markdown lives in Postgres; bulk HTML stays out of Supabase to respect free-tier limits.
 *   **Researcher-First Design:** By persisting raw HTML/Markdown in a version-controlled, date-nested file structure, ReadLogue builds a "Ground Truth" dataset. This allows for reproducible experimentation, feature engineering, and training for future Deep Learning models.
-*   **Zero-Cost Infrastructure:** Built entirely on GitHub Actions, GitHub Pages, and SQLite, providing a permanent, serverless research environment.
+*   **Zero-Cost Infrastructure:** GitHub Actions for ingest, Supabase free tier for the index, GitHub for raw HTML archival.
 
 ## Data Pipeline
 1.  **Ingest:** GitHub Actions execute the Python pipeline daily, fetching content from configured URLs.
-2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) to ensure filesystem performance.
-3.  **Index:** Metadata and labels (Read status, Rating, Category) are indexed in a local SQLite database, allowing for complex querying.
-4.  **Visualize:** A Streamlit-based UI serves as the curation layer, allowing manual tagging and classification—the critical "labeling" step for future ML pipelines.
+2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) in the **data repository**.
+3.  **Index:** Metadata, clean Markdown content, and labels are stored in **Supabase Postgres** (production). A scratch SQLite file on the GHA runner is hydrated from Supabase before each run for dedup/skip logic.
+4.  **Visualize:** Streamlit (local) today; Next.js on Vercel planned for hosted curation.
+
+## Storage layout
+
+| Asset | Location | Path |
+|-------|------------|------|
+| Production index | **Supabase Postgres** | `sources`, `items`, `ingestion_log` |
+| Raw HTML | **Data repo** (`readlogue_data_2026`) | `raw_html/YYYY-MM-DD/<uuid>.html` |
+| Scratch SQLite (GHA only) | Ephemeral runner | `data/reader.db` (gitignored) |
+| SQLite file backups (optional) | **Data repo** | `db_backups/daily/`, `db_backups/monthly/` |
+
+### Backup policy
+
+- **Supabase Postgres** is the production source of truth for the index and article Markdown.
+- **Daily backups:** after each ingest, GHA copies the scratch SQLite file to `db_backups/daily/reader-YYYY-MM-DD.db` in the data repo (7-day retention).
+- **Monthly backups:** on the 1st of each month, a monthly copy is written to `db_backups/monthly/`. Monthly files are **never deleted**.
+- **`data/reader.db` is not committed** to the main repo (avoids binary git bloat).
+
+### GitHub Actions flow
+
+Each ingest job:
+
+1. Checks out the main repo and the data repo (`data-repo/`).
+2. **Hydrates** scratch SQLite from Supabase (existing articles, failures, `raw_html_path` values).
+3. Runs ingestion — skips known URLs, fetches new articles, writes raw HTML under `data-repo/raw_html/`.
+4. **Syncs** scratch SQLite deltas back to Supabase.
+5. Copies optional SQLite backups to `data-repo/db_backups/`.
+6. Commits new HTML and backup files to the **data** repo.
+
+Setup: see [`supabase/README.md`](supabase/README.md). Required secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_REPO_DEPLOY_KEY`.
+
+**Fresh bootstrap:** delete old `raw_html/` in the data repo and run `workflow_dispatch` once to repopulate Supabase and HTML cleanly.
 
 ## Intended Outcomes
 ReadLogue is designed to evolve with future ML projects:
@@ -48,7 +80,7 @@ ReadLogue is designed to evolve with future ML projects:
 
 ## Goals
 
-- Ingest RSS and scraped pages into a canonical SQLite database.
+- Ingest RSS and scraped pages into Supabase Postgres (production) with optional local SQLite for development.
 - Store full article text for later model training.
 - Allow read/unread and Like/Dislike state changes from a Streamlit web page.
 - Allow manual category labeling from a configurable select list.
@@ -80,12 +112,14 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 - `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, exports, and raw HTML file storage.
 - `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` returns both cleaned Markdown content and raw HTML for ML pipelines.
 - `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
-- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival. RSS sources now fetch the full article page for each entry, not just the feed summary. Uses a source-kind registry (`SOURCE_HANDLERS`) to dispatch to the appropriate handler without an `if/elif` chain.
-- CSV and JSONL export functions live in `src/reader/storage.py` (`export_csv`, `export_jsonl`).
-- `streamlit_app.py` is the UI entrypoint; displays a warning banner when the last ingestion skipped articles.
-- `.github/workflows/ingest.yml` runs ingestion on a schedule or manually using a dual-repo checkout pattern.
-- Raw HTML is saved to `data/raw_html/YYYY-MM-DD/<uuid>.html` and committed to a separate data repository (`WizeIdea/readlogue_data_2026`) via `stefanzweifel/git-auto-commit-action`.
-- The scheduled GitHub Action runs daily and only fetches article pages that are not already in SQLite.
+- `src/reader/supabase_sync.py` hydrates scratch SQLite from Supabase before ingest and syncs changes back after (GHA).
+- `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival.
+- `src/reader/db_backup.py` rotates daily (7) and monthly SQLite backups into the data repository after ingest.
+- `streamlit_app.py` is the local UI entrypoint (reads local `data/reader.db`; hosted UI planned via Next.js + Supabase).
+- `.github/workflows/ingest.yml` runs ingestion on a schedule or manually; requires Supabase secrets.
+- Raw HTML is saved to `raw_html/YYYY-MM-DD/<uuid>.html` in the **data** repository.
+- DB backups are saved to `db_backups/daily/` and `db_backups/monthly/` in the data repository.
+- The scheduled GitHub Action hydrates from Supabase and only fetches article pages not already indexed.
 - `config/sources/*.yaml` hold per-source listing-page instructions for non-RSS news pages.
 - `config.example.yaml` now includes the manual category list used by the UI.
 - Non-RSS source profiles now also carry source-specific selectors for date and category extraction.
@@ -93,7 +127,9 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 
 ## How to use the reader UI
 
-The UI is the Streamlit app in `streamlit_app.py`.
+The UI is the Streamlit app in `streamlit_app.py`. It reads and writes the same `data/reader.db` file that ingestion uses.
+
+**Note:** Automatic sync of UI changes to GitHub is not yet implemented. For now, the UI is intended for local development against a cloned database. Hosted deployment with auto-commit is planned for a later phase.
 
 1. Start the app with Streamlit using the repo's configured Python environment.
 2. Open the page and load the same config file that ingestion uses.
@@ -121,6 +157,16 @@ Use this when you are doing the first full import or recovering from a broken so
 6. Re-run ingestion after the fix and confirm only new URLs are fetched.
 7. If a source produces bad or duplicated rows, remove or repair those rows in SQLite before the next scheduled run.
 8. Re-export the dataset after recovery so CSV and JSONL stay aligned with the current database.
+
+### Ingestion failures and ignore list
+
+When validation rejects an article (empty body, HTML residue, low lexical diversity, etc.), the pipeline records one row per URL in `ingestion_log` with an incrementing `failure_count`. The Streamlit UI shows these from the **first** failure with the error message and attempt count.
+
+- **`ignored_url_substrings` / `ignored_urls`** — skip matching URLs before fetch (no HTTP request). Use for repeat offenders such as JavaScript shells that will never pass validation.
+- **`auto_skip_failure_threshold`** (default `3`) — after this many failures for a URL that is not yet in `items`, ingest stops re-fetching it (`skipped_known_failure` in the summary).
+- **Ignore button** in the UI appends the URL to your config and clears the log row locally. With `READLOGUE_GITHUB_TOKEN` set, `git_sync` can commit the config change (Phase 2).
+
+Successful ingest removes the matching `ingestion_log` row. A **validation whitelist** (bypass checks for known-good URLs such as `cyber-toolkits-update`) is planned — see Next steps item 11.
 
 ## Adding a new news source
 
@@ -196,3 +242,4 @@ The ingestion pipeline must never overwrite the manual `category`, `read_at`, or
 8. Set up the data repo deploy key (SSH key) to activate the dual-repo raw HTML archival workflow.
 9. Consider adding a `raw_html_path` link in the Streamlit UI for quick access to the original HTML.
 10. Document the source-kind registry pattern (`SOURCE_HANDLERS`) in CONTRIBUTING.md for future contributors.
+11. Add a validation **whitelist** for URLs that should bypass lexical-diversity or similar checks (e.g. `cyber-toolkits-update` on Anthropic Research).
