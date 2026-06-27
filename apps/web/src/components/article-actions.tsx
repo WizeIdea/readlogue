@@ -16,6 +16,7 @@ type Props = {
   item: ItemRow;
 };
 
+
 const categoryOptions = [UNCATEGORIZED, ...CATEGORIES];
 
 export function ArticleActions({ item }: Props) {
