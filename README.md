@@ -91,7 +91,7 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 ## Current structure
 
 - `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, exports, and raw HTML file storage.
-- `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` returns cleaned Markdown, raw HTML, and an optional `hero_image_url` (Open Graph / Twitter meta).
+- `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` uses **Trafilatura** for main body text (Markdown), falls back to CSS selectors + html2text, and returns raw HTML plus optional `hero_image_url`.
 - `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
 - `src/reader/supabase_sync.py` hydrates scratch SQLite from Supabase before ingest, syncs changes back after (GHA), and loads runtime ignore rules from the `ignored_urls` table.
 - `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival.
@@ -195,7 +195,7 @@ Required or strongly recommended item fields for ingestion:
 - `fingerprint`: unique item key derived from the article URL (query parameters and fragments are stripped before hashing to prevent duplicates from tracking params).
 - `url`: canonical article URL.
 - `title`: article title.
-- `content`: full article body text.
+- `content`: full article body as Markdown (Trafilatura-extracted; raw HTML archived separately for reprocessing).
 - `summary`: short preview text.
 - `published_at`: parsed publication timestamp when available.
 
@@ -217,8 +217,8 @@ The ingestion pipeline must never overwrite the manual `category`, `read_at`, or
 
 1. ~~Add real feed URLs to a local config file based on `config.example.yaml`.~~ — 5 sources configured (Anthropic, BAIR, HuggingFace x2, Stanford HAI)
 2. ~~Add additional source profiles using the same listing-page metadata pattern.~~ — BAIR, HuggingFace, Stanford HAI profiles added
-3. ~~Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.~~ — 68 tests passing
-4. Enhance scraper fallback heuristics for harder article pages (e.g., Readability, boilerpipe-style extraction).
+3. ~~Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.~~ — 70 tests passing
+4. ~~Enhance scraper fallback heuristics for harder article pages (e.g., Readability, boilerpipe-style extraction).~~ — Trafilatura primary extraction + selector fallback (v1.2.0).
 5. ~~Decide whether ingestion should run in a hosted environment, a local cron job, or only GitHub Actions.~~ — GitHub Actions workflow configured
 6. ~~Add an operator checklist for initial backfill, validation, and recovery from broken pages.~~ — See "Backfill / recovery checklist" above
 7. ~~Add more robust monitoring for failed source fetches, parse failures, and empty ingests.~~ — Content validation + ingestion_log + exception handling implemented. Remaining enhancements: retry logic for transient failures, optional alerting.

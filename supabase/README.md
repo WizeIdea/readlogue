@@ -25,6 +25,8 @@ Existing SQLite and raw HTML can be discarded; the first ingest repopulates ever
 5. Trigger **workflow_dispatch** on the ingest workflow.
 6. Verify rows in Supabase Table Editor; run ingest again and confirm `skipped_existing` in logs.
 
+**After changing the content extractor** (e.g. Trafilatura upgrade): truncate `items`, `sources`, and `ingestion_log` in Supabase, delete `raw_html/` in the data repo, and run `workflow_dispatch` for a clean re-ingest.
+
 ## Local development
 
 Without `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY`, ingest uses local `data/reader.db` only (legacy behavior).

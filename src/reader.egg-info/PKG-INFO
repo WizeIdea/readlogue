@@ -13,6 +13,7 @@ Requires-Dist: requests>=2.31
 Requires-Dist: streamlit>=1.36
 Requires-Dist: PyYAML>=6.0
 Requires-Dist: supabase>=2.0
+Requires-Dist: trafilatura>=2.0
 Provides-Extra: dev
 Requires-Dist: pytest>=8.0; extra == "dev"
 Dynamic: license-file
@@ -39,13 +40,13 @@ In the age of AI, information overload is a technical problem, not just a lifest
 1.  **Ingest:** GitHub Actions execute the Python pipeline daily, fetching content from configured URLs.
 2.  **Normalize:** Raw HTML is processed and stored in a date-nested directory structure (`/YYYY-MM-DD/uuid.html`) in the **data repository**.
 3.  **Index:** Metadata, clean Markdown content, and labels are stored in **Supabase Postgres** (production). A scratch SQLite file on the GHA runner is hydrated from Supabase before each run for dedup/skip logic.
-4.  **Visualize:** Streamlit (local) today; Next.js on Vercel planned for hosted curation.
+4.  **Visualize:** Next.js on Vercel (Phase 2, in progress); Streamlit remains available for local SQLite dev.
 
 ## Storage layout
 
 | Asset | Location | Path |
 |-------|------------|------|
-| Production index | **Supabase Postgres** | `sources`, `items`, `ingestion_log` |
+| Production index | **Supabase Postgres** | `sources`, `items`, `ingestion_log`, `ignored_urls` |
 | Raw HTML | **Data repo** (`readlogue_data_2026`) | `raw_html/YYYY-MM-DD/<uuid>.html` |
 | Scratch SQLite (GHA only) | Ephemeral runner | `data/reader.db` (gitignored) |
 | SQLite file backups (optional) | **Data repo** | `db_backups/daily/`, `db_backups/monthly/` |
@@ -62,15 +63,15 @@ In the age of AI, information overload is a technical problem, not just a lifest
 Each ingest job:
 
 1. Checks out the main repo and the data repo (`data-repo/`).
-2. **Hydrates** scratch SQLite from Supabase (existing articles, failures, `raw_html_path` values).
-3. Runs ingestion — skips known URLs, fetches new articles, writes raw HTML under `data-repo/raw_html/`.
+2. **Hydrates** scratch SQLite from Supabase (existing articles, failures, `raw_html_path`, `hero_image_url` values).
+3. Runs ingestion — merges YAML and Supabase ignore lists, skips known URLs, fetches new articles, extracts hero images from page meta tags, writes raw HTML under `data-repo/raw_html/`.
 4. **Syncs** scratch SQLite deltas back to Supabase.
 5. Copies optional SQLite backups to `data-repo/db_backups/`.
 6. Commits new HTML and backup files to the **data** repo.
 
-Setup: see [`supabase/README.md`](supabase/README.md). Required secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_REPO_DEPLOY_KEY`.
+Setup: see [`supabase/README.md`](supabase/README.md). Apply migrations `001`–`004` in order. Required secrets: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `DATA_REPO_DEPLOY_KEY`.
 
-**Fresh bootstrap:** delete old `raw_html/` in the data repo and run `workflow_dispatch` once to repopulate Supabase and HTML cleanly.
+**Fresh bootstrap:** truncate `items` and `ingestion_log` in Supabase (or delete `raw_html/` in the data repo) and run `workflow_dispatch` once to repopulate the index and HTML cleanly.
 
 ## Intended Outcomes
 ReadLogue is designed to evolve with future ML projects:
@@ -110,9 +111,9 @@ See [Adding a new news source](#adding-a-new-news-source) below for the full pat
 ## Current structure
 
 - `src/reader/storage.py` handles SQLite schema (with version-tracked migrations), upserts, state changes, exports, and raw HTML file storage.
-- `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` returns both cleaned Markdown content and raw HTML for ML pipelines.
+- `src/reader/scrapers.py` contains RSS and page-extraction helpers; `extract_article()` returns cleaned Markdown, raw HTML, and an optional `hero_image_url` (Open Graph / Twitter meta).
 - `src/reader/validation.py` contains content-quality checks (word count, HTML residue, lexical diversity).
-- `src/reader/supabase_sync.py` hydrates scratch SQLite from Supabase before ingest and syncs changes back after (GHA).
+- `src/reader/supabase_sync.py` hydrates scratch SQLite from Supabase before ingest, syncs changes back after (GHA), and loads runtime ignore rules from the `ignored_urls` table.
 - `src/reader/ingest.py` orchestrates feed ingestion with content validation, failure logging, and raw HTML archival.
 - `src/reader/db_backup.py` rotates daily (7) and monthly SQLite backups into the data repository after ingest.
 - `streamlit_app.py` is the local UI entrypoint (reads local `data/reader.db`; hosted UI planned via Next.js + Supabase).
@@ -162,7 +163,8 @@ Use this when you are doing the first full import or recovering from a broken so
 
 When validation rejects an article (empty body, HTML residue, low lexical diversity, etc.), the pipeline records one row per URL in `ingestion_log` with an incrementing `failure_count`. The Streamlit UI shows these from the **first** failure with the error message and attempt count.
 
-- **`ignored_url_substrings` / `ignored_urls`** — skip matching URLs before fetch (no HTTP request). Use for repeat offenders such as JavaScript shells that will never pass validation.
+- **`ignored_url_substrings` / `ignored_urls` (YAML)** — skip matching URLs before fetch (no HTTP request). Use for repeat offenders such as JavaScript shells that will never pass validation.
+- **`ignored_urls` (Supabase)** — same semantics, managed at runtime from the hosted UI; merged with YAML on each ingest run.
 - **`auto_skip_failure_threshold`** (default `3`) — after this many failures for a URL that is not yet in `items`, ingest stops re-fetching it (`skipped_known_failure` in the summary).
 - **Ignore button** in the UI appends the URL to your config and clears the log row locally. With `READLOGUE_GITHUB_TOKEN` set, `git_sync` can commit the config change (Phase 2).
 
@@ -223,15 +225,19 @@ Useful metadata fields that should be populated when the source exposes them:
 - `source_category`: category or tag reported by the source itself.
 - `category`: manual label chosen in the UI.
 - `read_at`: read/unread state stored by the UI.
-- `rating`: Like/Dislike state stored by the UI.
+- `rating`: Like/Dislike state stored by the UI (primary signal for planned ML training).
+- `hero_image_url`: absolute URL of the article hero/thumbnail image from Open Graph or Twitter meta tags when available.
+- `raw_html_path`: relative path to archived HTML in the data repository.
 
 The ingestion pipeline must never overwrite the manual `category`, `read_at`, or `rating` fields when new items are discovered later.
+
+**Ignore lists:** `config.example.yaml` holds seed `ignored_urls` / `ignored_url_substrings`. The Supabase `ignored_urls` table holds additional runtime rules (written by the hosted UI). GHA ingest merges both sources on each run.
 
 ## Next steps
 
 1. ~~Add real feed URLs to a local config file based on `config.example.yaml`.~~ — 5 sources configured (Anthropic, BAIR, HuggingFace x2, Stanford HAI)
 2. ~~Add additional source profiles using the same listing-page metadata pattern.~~ — BAIR, HuggingFace, Stanford HAI profiles added
-3. ~~Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.~~ — 29 tests passing
+3. ~~Add tests for manual category updates, storage persistence, source metadata extraction, deduping, and exports.~~ — 68 tests passing
 4. Enhance scraper fallback heuristics for harder article pages (e.g., Readability, boilerpipe-style extraction).
 5. ~~Decide whether ingestion should run in a hosted environment, a local cron job, or only GitHub Actions.~~ — GitHub Actions workflow configured
 6. ~~Add an operator checklist for initial backfill, validation, and recovery from broken pages.~~ — See "Backfill / recovery checklist" above
@@ -240,6 +246,6 @@ The ingestion pipeline must never overwrite the manual `category`, `read_at`, or
 ### New items
 
 8. Set up the data repo deploy key (SSH key) to activate the dual-repo raw HTML archival workflow.
-9. Consider adding a `raw_html_path` link in the Streamlit UI for quick access to the original HTML.
+9. Next.js hosted UI on Vercel (Phase 2).
 10. Document the source-kind registry pattern (`SOURCE_HANDLERS`) in CONTRIBUTING.md for future contributors.
 11. Add a validation **whitelist** for URLs that should bypass lexical-diversity or similar checks (e.g. `cyber-toolkits-update` on Anthropic Research).

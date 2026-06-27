@@ -677,30 +677,17 @@ def extract_article(
         author = _first_meta_content(soup, "author")
         return title, "", "", author, html, None
 
-    content = ""
-    if content_selectors:
-        content = _extract_content_from_selectors(soup, content_selectors)
-    if not content:
-        # Try semantic HTML5 tags first
-        content = _extract_content_from_selectors(soup, ("article", "main"))
-    if not content:
-        # Fallback to common modern web patterns (divs with content-related classes)
-        content = _extract_content_from_selectors(
-            soup,
-            (
-                "div[class*='content']",
-                "div[class*='article']",
-                "div[class*='post']",
-                "div[class*='body']",
-                "div[class*='entry']",
-            ),
-        )
-    if not content:
-        paragraphs = soup.select(paragraph_selector)
-        if paragraphs:
-            # Wrap paragraphs in a <div> and convert to Markdown
-            paragraph_html = "<div>" + "".join(str(p) for p in paragraphs) + "</div>"
-            content = _html_to_markdown(paragraph_html)
+    content = _extract_main_content(
+        html,
+        url,
+        soup,
+        content_selectors=content_selectors,
+        paragraph_selector=paragraph_selector,
+    )
+
+    trafilatura_title = _extract_title_with_trafilatura(html, url)
+    if trafilatura_title:
+        title = trafilatura_title
 
     summary = content[:500]
     author = _first_meta_content(soup, "author")
@@ -862,6 +849,78 @@ def _looks_like_date(text: str) -> bool:
     return bool(re.search(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b", text)) or bool(
         re.search(r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b", text)
     )
+
+
+_TRAFILATURA_MIN_CHARS = 200
+
+
+def _extract_with_trafilatura(html: str, url: str) -> str | None:
+    try:
+        import trafilatura
+    except ModuleNotFoundError as exc:  # pragma: no cover
+        raise RuntimeError("trafilatura is required for article extraction") from exc
+
+    content = trafilatura.extract(
+        html,
+        url=url,
+        output_format="markdown",
+        include_links=True,
+        include_images=False,
+        favor_precision=True,
+        deduplicate=True,
+    )
+    if not content:
+        return None
+    stripped = content.strip()
+    return stripped if len(stripped) >= _TRAFILATURA_MIN_CHARS else None
+
+
+def _extract_title_with_trafilatura(html: str, url: str) -> str | None:
+    try:
+        import trafilatura
+    except ModuleNotFoundError:  # pragma: no cover
+        return None
+
+    metadata = trafilatura.extract_metadata(html, default_url=url)
+    if metadata is None or not metadata.title:
+        return None
+    title = metadata.title.strip()
+    return title if len(title) >= 3 else None
+
+
+def _extract_main_content(
+    html: str,
+    url: str,
+    soup: BeautifulSoup,
+    *,
+    content_selectors: tuple[str, ...] = (),
+    paragraph_selector: str = "article p, main p, p",
+) -> str:
+    content = _extract_with_trafilatura(html, url)
+    if content:
+        return content
+
+    if content_selectors:
+        content = _extract_content_from_selectors(soup, content_selectors)
+    if not content:
+        content = _extract_content_from_selectors(soup, ("article", "main"))
+    if not content:
+        content = _extract_content_from_selectors(
+            soup,
+            (
+                "div[class*='content']",
+                "div[class*='article']",
+                "div[class*='post']",
+                "div[class*='body']",
+                "div[class*='entry']",
+            ),
+        )
+    if not content:
+        paragraphs = soup.select(paragraph_selector)
+        if paragraphs:
+            paragraph_html = "<div>" + "".join(str(p) for p in paragraphs) + "</div>"
+            content = _html_to_markdown(paragraph_html)
+    return content
 
 
 def _extract_content_from_selectors(soup: BeautifulSoup, selectors: tuple[str, ...]) -> str:

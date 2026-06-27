@@ -6,6 +6,8 @@ from unittest.mock import Mock, patch
 from reader.scrapers import (
     _extract_content_from_selectors,
     _extract_hero_image_url,
+    _extract_main_content,
+    _extract_with_trafilatura,
     _strip_embed_markup,
     build_url_ignore_checker,
     discover_listing_links_from_html,
@@ -219,6 +221,82 @@ class ScraperDiscoveryTests(unittest.TestCase):
         self.assertEqual(len(articles), 2)
         self.assertEqual(articles[0].url, "https://example.com/post-0")
         self.assertEqual(articles[1].url, "https://example.com/post-1")
+
+
+class TrafilaturaExtractionTests(unittest.TestCase):
+    def _article_paragraphs(self) -> str:
+        return " ".join(
+            [
+                "Openness in cybersecurity research helps teams share findings responsibly.",
+                "We describe how transparent disclosure supports safer deployment of machine learning systems.",
+                "Collaboration across industry and academia reduces duplicated effort on threat modeling.",
+                "Practical guidelines help practitioners balance publication with operational security needs.",
+                "The community benefits when reproducible benchmarks and datasets are released openly.",
+                "Long-term trust depends on clear norms for reporting vulnerabilities in shared infrastructure.",
+            ]
+        )
+
+    def test_extract_with_trafilatura_excludes_site_chrome(self) -> None:
+        body = self._article_paragraphs()
+        html = f"""
+        <html>
+          <body>
+            <main>
+              <a href="/blog">Back to Articles</a>
+              <a href="https://github.com/huggingface/blog">Update on GitHub</a>
+              <a href="/login">Upvote 42</a>
+              <nav aria-label="Breadcrumb">
+                <a href="/">Home</a>
+                <a href="/blog">Blog</a>
+              </nav>
+              <div class="share">
+                <a href="https://twitter.com/intent/tweet">Share on x.com</a>
+                <a href="https://www.facebook.com/sharer">Facebook</a>
+              </div>
+              <article>
+                <h1>Cybersecurity and Openness</h1>
+                <p>{body}</p>
+              </article>
+            </main>
+          </body>
+        </html>
+        """
+        url = "https://huggingface.co/blog/cybersecurity-openness"
+        content = _extract_with_trafilatura(html, url)
+
+        self.assertIsNotNone(content)
+        assert content is not None
+        self.assertIn("Openness in cybersecurity research", content)
+        self.assertNotIn("Back to Articles", content)
+        self.assertNotIn("Upvote 42", content)
+        self.assertNotIn("Share on x.com", content)
+
+    def test_extract_main_content_falls_back_to_selectors(self) -> None:
+        from reader.scrapers import _load_beautifulsoup
+
+        filler = " ".join(f"word{i}" for i in range(60))
+        html = f"""
+        <html>
+          <body>
+            <main>
+              <p>{filler}</p>
+              <p>More article text continues here with additional context and detail.</p>
+            </main>
+          </body>
+        </html>
+        """
+        soup = _load_beautifulsoup()(html, "html.parser")
+
+        with patch("reader.scrapers._extract_with_trafilatura", return_value=None):
+            content = _extract_main_content(
+                html,
+                "https://example.com/minimal",
+                soup,
+                content_selectors=("main",),
+            )
+
+        self.assertIn("word0", content)
+        self.assertGreater(len(content.split()), 10)
 
 
 class HeroImageExtractionTests(unittest.TestCase):
