@@ -41,7 +41,7 @@ article_domains:
   - policy
 
 sources:
-  # --- Next GHA run: aisi-blog, ieee-spectrum*, unimelb*, rmit, anu, qut ---
+  # --- Next GHA run: unimelb-newsroom-eng-it + unimelb-newsroom-education only ---
   - name: csail-news
     kind: listing
     url: https://www.csail.mit.edu/news/
@@ -91,6 +91,7 @@ sources:
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/aisi-blog.xml
     scraper: rss
+    enabled: false
     config: config/sources/aisi-blog.yaml
     settings:
       fetcher: playwright
@@ -120,6 +121,7 @@ sources:
     kind: rss
     url: https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: AI News
@@ -128,6 +130,7 @@ sources:
     kind: rss
     url: https://spectrum.ieee.org/feeds/topic/computing.rss
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: AI News
@@ -145,30 +148,32 @@ sources:
     kind: rss
     url: https://spectrum.ieee.org/feeds/feed.rss
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: News Digests
 
   - name: unimelb-newsroom-eng-it
-    kind: rss
-    url: https://www.unimelb.edu.au/newsroom/feed?queries_category_query=4000908
-    scraper: rss
+    kind: listing
+    url: https://www.unimelb.edu.au/newsroom/topics?queries_category_query=4000908
+    scraper: beautifulsoup
+    config: config/sources/unimelb-newsroom.yaml
     settings:
-      max_entries: 25
       default_category: Education
 
   - name: unimelb-newsroom-education
-    kind: rss
-    url: https://www.unimelb.edu.au/newsroom/feed?queries_category_query=4000907
-    scraper: rss
+    kind: listing
+    url: https://www.unimelb.edu.au/newsroom/topics?queries_category_query=4000907
+    scraper: beautifulsoup
+    config: config/sources/unimelb-newsroom.yaml
     settings:
-      max_entries: 25
       default_category: Education
 
   - name: rmit-news-technology
     kind: listing
     url: https://www.rmit.edu.au/news/technology
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/rmit-news-technology.yaml
     settings:
       default_category: Education
@@ -177,6 +182,7 @@ sources:
     kind: listing
     url: https://ai.anu.edu.au/news
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/anu-integrated-ai-news.yaml
     settings:
       default_category: Education
@@ -185,6 +191,7 @@ sources:
     kind: rss
     url: https://research.qut.edu.au/genailab/feed/
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: Education

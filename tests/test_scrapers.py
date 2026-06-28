@@ -707,6 +707,33 @@ class AuUniversityListingProfileTests(unittest.TestCase):
             urls,
         )
 
+    def test_unimelb_listing_profile_discovers_newsroom_links(self) -> None:
+        from reader.config import load_listing_profile
+        from reader.scrapers import parse_listing_articles
+
+        profile = load_listing_profile("config/sources/unimelb-newsroom.yaml")
+        html = """
+        <html><body>
+          <a href="https://www.unimelb.edu.au/newsroom/topics">Topics</a>
+          <a href="https://www.unimelb.edu.au/newsroom/news/2026/june/sample-story">Sample story</a>
+        </body></html>
+        """
+        articles = parse_listing_articles(
+            "https://www.unimelb.edu.au/newsroom/topics?queries_category_query=4000908",
+            html=html,
+            fetcher=profile.fetcher,
+            item_selector=profile.item_selector,
+            link_selector=profile.link_selector,
+            allowed_url_prefixes=tuple(profile.allowed_url_prefixes),
+            excluded_url_substrings=tuple(profile.excluded_url_substrings),
+            max_links=profile.max_links,
+        )
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(
+            articles[0].url,
+            "https://www.unimelb.edu.au/newsroom/news/2026/june/sample-story",
+        )
+
 
 class UrlIgnoreCheckerTests(unittest.TestCase):
     def test_exact_url_match_ignores_normalized_url(self) -> None:

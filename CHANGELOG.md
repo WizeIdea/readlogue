@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - IEEE Spectrum RSS sources: `ieee-spectrum-ai`, `ieee-spectrum-computing` (AI News), `ieee-spectrum` (News Digests) — topic/main feeds, not homepage scrape
 - Australian university sources (all `default_category: Education`):
-  - `unimelb-newsroom-eng-it`, `unimelb-newsroom-education` — filtered UniMelb newsroom RSS feeds
+  - `unimelb-newsroom-eng-it`, `unimelb-newsroom-education` — filtered UniMelb newsroom **topic listing** pages (RSS feeds 403 on GHA)
   - `rmit-news-technology` — listing scrape on `/news/technology`
   - `anu-integrated-ai-news` — listing scrape on ANU Integrated AI `/news` (not `rss.xml`, which is events-only)
   - `qut-genailab` — WordPress RSS at GenAI Lab
@@ -22,9 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `the-batch` disabled — DeepLearning.ai returns 403 from GHA datacenter IPs; proxy RSS has teaser-only descriptions
 - `acm-technews` disabled — external article fetches are patchy and RSS digests (~80 words) are not suitable for full-text storage
 
+### Fixed
+- UniMelb newsroom sources switched from RSS to topic **listing** scrape — `/newsroom/feed?queries_category_query=…` returns 403 from GHA; topic pages return static article links
+
 ### Notes
 - Apply Supabase migration [`005_item_curation.sql`](supabase/migrations/005_item_curation.sql) before sync if the `curation` column is missing
-- UniMelb newsroom feeds may hit Cloudflare intermittently on GHA
+- UniMelb topic listing pages used instead of RSS (feeds blocked on GHA)
 - RMIT technology listing exposes ~9 articles per run (Load More is JS-only)
 - IEEE topic feeds overlap with the main feed; URL fingerprint dedupe prevents duplicate rows
 
