@@ -172,11 +172,15 @@ sources:
       default_category: Education
 
   - name: ai-gov-blog
-    kind: listing
-    url: https://www.ai.gov.au/news-and-insights/blog
-    scraper: beautifulsoup
+    kind: rss
+    url: https://www.ai.gov.au/rss.xml
+    scraper: rss
     config: config/sources/ai-gov-blog.yaml
     settings:
+      max_entries: 25
+      timeout: 60
+      allowed_url_prefixes:
+        - https://www.ai.gov.au/news-and-insights/blog/
       default_category: Governance and Policy
 
   - name: atse-news
@@ -189,7 +193,7 @@ sources:
 
   - name: dta-news-ai
     kind: listing
-    url: https://www.dta.gov.au/news?type=All&field_tags=33&search_api_fulltext=
+    url: https://www.dta.gov.au/articles
     scraper: beautifulsoup
     config: config/sources/dta-news-ai.yaml
     settings:

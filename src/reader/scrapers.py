@@ -181,8 +181,23 @@ def _handle_rss_source(
     max_entries = int(source_config.settings.get("max_entries", 25))
     fetcher = str(source_config.settings.get("fetcher", "requests"))
     use_feed_content = bool(source_config.settings.get("use_feed_content", False))
+    rss_timeout = int(source_config.settings.get("timeout", 60))
+    allowed_url_prefixes = tuple(
+        str(value) for value in source_config.settings.get("allowed_url_prefixes", [])
+    )
     articles = []
-    raw_articles = parse_rss_feed(source_config.name, source_config.url, max_entries=max_entries)
+    raw_articles = parse_rss_feed(
+        source_config.name,
+        source_config.url,
+        max_entries=max_entries,
+        timeout=rss_timeout,
+    )
+    if allowed_url_prefixes:
+        raw_articles = [
+            raw
+            for raw in raw_articles
+            if raw.url and any(raw.url.startswith(prefix) for prefix in allowed_url_prefixes)
+        ]
     existing_fingerprints = existing_item_fingerprints(connection, [raw.url for raw in raw_articles])
     pending = [
         raw
@@ -594,11 +609,17 @@ SOURCE_HANDLERS = {
 }
 
 
-def parse_rss_feed(source_name: str, source_url: str, *, max_entries: int = 25) -> list[ArticleRecord]:
+def parse_rss_feed(
+    source_name: str,
+    source_url: str,
+    *,
+    max_entries: int = 25,
+    timeout: int = 60,
+) -> list[ArticleRecord]:
     import logging
 
     logger = logging.getLogger(__name__)
-    response = requests.get(source_url, timeout=15, headers={"User-Agent": "reader/0.1.0"})
+    response = requests.get(source_url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})
     response.raise_for_status()
     parsed = feedparser.parse(response.content)
     if not parsed.entries:
@@ -1244,13 +1265,19 @@ def _load_html2text():
 def _fetch_html(url: str, fetcher: str, timeout: int, *, playwright_wait_selector: str | None = None) -> str:
     import logging
 
+    import requests.exceptions
+
     logger = logging.getLogger(__name__)
     playwright_timeout = max(timeout, 60)
 
     if fetcher == "playwright":
         return _fetch_html_playwright(url, playwright_timeout, playwright_wait_selector)
 
-    response = requests.get(url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})
+    try:
+        response = requests.get(url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})
+    except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+        logger.info("Request failed for %s (%s) — retrying with Playwright", url, exc.__class__.__name__)
+        return _fetch_html_playwright(url, playwright_timeout, playwright_wait_selector)
     if response.status_code == 403:
         logger.info("HTTP 403 for %s — retrying with Playwright", url)
         return _fetch_html_playwright(url, playwright_timeout, playwright_wait_selector)

@@ -421,6 +421,83 @@ class RssSourceHandlerTests(unittest.TestCase):
 
     @patch("reader.scrapers._fetch_article")
     @patch("reader.scrapers.parse_rss_feed")
+    def test_rss_allowed_url_prefixes_filters_feed_entries(
+        self, parse_feed: Mock, fetch_article: Mock
+    ) -> None:
+        from reader.config import SourceConfig
+        from reader.scrapers import _handle_rss_source
+        from reader.storage import ArticleRecord, connect, initialize
+
+        parse_feed.return_value = [
+            ArticleRecord(
+                source_name="ai-gov-blog",
+                source_url="https://www.ai.gov.au/rss.xml",
+                url="https://www.ai.gov.au/news-and-insights/blog/sample-post",
+                title="Blog post",
+                summary="",
+                content="",
+                published_at=None,
+            ),
+            ArticleRecord(
+                source_name="ai-gov-blog",
+                source_url="https://www.ai.gov.au/rss.xml",
+                url="https://www.ai.gov.au/news-and-insights/events/sample-event",
+                title="Event",
+                summary="",
+                content="",
+                published_at=None,
+            ),
+        ]
+        fetch_article.return_value = ArticleRecord(
+            source_name="ai-gov-blog",
+            source_url="https://www.ai.gov.au/rss.xml",
+            url="https://www.ai.gov.au/news-and-insights/blog/sample-post",
+            title="Blog post",
+            summary="Full article body with enough words for validation downstream.",
+            content="Full article body with enough words for validation downstream.",
+            published_at=None,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "reader.db"
+            initialize(db_path)
+            with connect(db_path) as connection:
+                source = SourceConfig(
+                    name="ai-gov-blog",
+                    kind="rss",
+                    url="https://www.ai.gov.au/rss.xml",
+                    config_path=Path("config/sources/ai-gov-blog.yaml"),
+                    settings={
+                        "allowed_url_prefixes": [
+                            "https://www.ai.gov.au/news-and-insights/blog/",
+                        ],
+                    },
+                )
+                articles = _handle_rss_source(source, connection)
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].url, "https://www.ai.gov.au/news-and-insights/blog/sample-post")
+        fetch_article.assert_called_once()
+
+    @patch("reader.scrapers._fetch_html_playwright")
+    @patch("reader.scrapers.requests.get")
+    def test_fetch_html_retries_playwright_on_timeout(
+        self, requests_get: Mock, playwright_fetch: Mock
+    ) -> None:
+        import requests
+
+        from reader.scrapers import _fetch_html
+
+        requests_get.side_effect = requests.exceptions.ReadTimeout("timed out")
+        playwright_fetch.return_value = "<html><body>fallback</body></html>"
+
+        html = _fetch_html("https://example.com/slow", fetcher="requests", timeout=60)
+
+        self.assertEqual(html, "<html><body>fallback</body></html>")
+        playwright_fetch.assert_called_once()
+
+    @patch("reader.scrapers._fetch_article")
+    @patch("reader.scrapers.parse_rss_feed")
     def test_rss_continues_after_http_error_on_one_url(
         self, parse_feed: Mock, fetch_article: Mock
     ) -> None:

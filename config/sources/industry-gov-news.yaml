@@ -1,7 +1,5 @@
 fetcher: requests
-listing_fetcher: playwright
-playwright_wait_selector: 'a[href*="/news/"]'
-playwright_article_wait_selector: 'article, main'
+listing_fetcher: requests
 item_selector: a[href*="/news/"]
 link_selector: a[href*="/news/"]
 allowed_url_prefixes:
