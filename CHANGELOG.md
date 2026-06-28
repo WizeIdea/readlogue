@@ -9,20 +9,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- [`_extract_article_published_at()`](src/reader/scrapers.py) — article-page date from trafilatura, meta tags, `time[datetime]`, URL path, and optional per-source YAML (`article_date_selectors`)
-- [`_normalize_published_at()`](src/reader/scrapers.py) — canonical ISO UTC storage (RFC 2822, microseconds stripped)
-- [`scripts/audit_item_dates.py`](scripts/audit_item_dates.py) — `inventory` (offline full-table scan) and `verify` (live re-fetch every URL)
+- [`_extract_article_published_at()`](src/reader/scrapers.py) — article-page `published_at` with priority: trafilatura metadata → Open Graph / meta tags → `time[datetime]` → optional per-source YAML (`article_date_selectors` / `article_date_formats`) → URL path patterns (`/YYYY/MM/DD/`, `/YYYY-MM-DD-`)
+- [`_normalize_published_at()`](src/reader/scrapers.py) — all ingest paths persist canonical ISO UTC (`YYYY-MM-DDTHH:MM:SS+00:00`); accepts RFC 2822, ISO, and date-only input; strips fractional seconds (e.g. Hugging Face API microseconds)
+- [`scripts/audit_item_dates.py`](scripts/audit_item_dates.py) — date QA gate before/after re-import:
+  - `inventory` — offline scan of **every** `items` row (format class, NULLs, non-canonical ISO, per-source summary)
+  - `verify` — live re-fetch of **every** URL; compares stored vs extracted vs page truth
+- [`ListingSourceProfile`](src/reader/config.py) — optional `article_date_selectors` / `article_date_formats` for article-page overrides (separate from listing `date_selectors`)
+- Unit tests for `_normalize_published_at`, URL-path extraction, and meta-tag article dates in [`tests/test_scrapers.py`](tests/test_scrapers.py)
 
 ### Changed
 
-- `_fetch_article` prefers article-page date over listing/RSS fallback; RSS merge normalizes stored values
-- Article meta line shows **`published_at` only** (no `created_at` fallback) in [`article-row.tsx`](apps/web/src/components/article-row.tsx)
-- [`bair-blog.yaml`](config/sources/bair-blog.yaml) — listing `item_selector` no longer matches bare blog links (date lives in parent card)
+- `_fetch_article` — prefers article-page date over listing-card date; both normalized before storage
+- RSS ingest — article-page date wins over feed `pubDate`; merge path and RSS-only path normalize `published_at`
+- `parse_rss_feed`, `parse_huggingface_tag_articles`, and `_parse_date_text` — emit normalized ISO via `_normalize_published_at`
+- Article meta line in [`article-row.tsx`](apps/web/src/components/article-row.tsx) — shows **`published_at` only** (omits date when null; no `created_at` fallback). `sort_at` still falls back to `created_at` for ordering only.
+
+### Fixed
+
+- **Wrong or missing dates at ingest** — listing sources with dates outside the link element (e.g. BAIR), RSS syndication dates disagreeing with article pages (e.g. Allen AI `molmo-motion`: feed Jun 30 → page Jun 17), and 122 rows with null `published_at` on full re-import now populated from article-page extraction
+- **Mixed `published_at` string formats in storage** — legacy RFC 2822 from pre-2.1.1 RSS rows (e.g. `Thu, 25 Jun 2026…` vs `2026-02-18T00:00:00+00:00` on listing sources). Full re-import with normalization yields one format everywhere.
+- [`bair-blog.yaml`](config/sources/bair-blog.yaml) — `item_selector: div.post` (BAIR listing has no `<article>` tags; bare `a[href*="/blog/"]` missed parent-card dates; `article, main section` matched nothing and skipped the entire source). Hub URLs excluded (`/blog/about`, `/blog/archive`, `/blog/page/`, etc.). Article dates from URL path on fetch when listing card has no date text.
 
 ### Notes
 
-- After deploy: truncate `items`, full re-ingest, run `python scripts/audit_item_dates.py --database … inventory` to confirm zero NULL/RFC2822 rows
-- Apply Supabase migration `007` before relying on dashboard sort
+- **Workflow:** fix ingest (Python) → truncate → full re-import → audit. Do not backfill `published_at` in Supabase in place.
+- **Supabase migration `007`** — confirm `sort_at` is `timestamptz` and `unread_rank` is `smallint` before relying on dashboard sort (see [`007_sort_at_timestamptz.sql`](supabase/migrations/007_sort_at_timestamptz.sql)).
+- **Truncate for re-import** (keeps `sources`; wipes articles and failure log):
+  ```sql
+  TRUNCATE TABLE public.ingestion_log, public.items RESTART IDENTITY;
+  ```
+- **Post re-import audit** (example):
+  ```bash
+  python scripts/audit_item_dates.py --database reader-YYYY-MM-DD.db inventory
+  python scripts/audit_item_dates.py --database reader-YYYY-MM-DD.db verify
+  ```
+- **Validated on 2026-06-28 backup after re-import:** 511 items — 511 canonical ISO, 0 RFC 2822, 0 NULL; live `verify` passed for `groq-blog` (24/24, previously all NULL) and `allenai-news` (9/9, including corrected `molmo-motion` date). Re-run ingest after the `div.post` BAIR selector fix to restore ~10 BAIR posts (missed when `item_selector` matched no listing cards).
 
 ## [2.1.1] - 2026-06-29
 

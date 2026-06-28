@@ -1,5 +1,5 @@
 fetcher: requests
-item_selector: article, main article, main section
+item_selector: div.post
 link_selector: a[href*="/blog/"]
 allowed_url_prefixes:
   - https://bair.berkeley.edu/blog/
