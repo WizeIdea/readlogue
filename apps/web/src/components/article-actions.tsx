@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 
 import { setRating } from "@/app/actions";
@@ -18,16 +19,29 @@ function nextRating(
 }
 
 export function ArticleActions({ item }: Props) {
+  const [rating, setRatingLocal] = useState(item.rating);
+
+  useEffect(() => {
+    setRatingLocal(item.rating);
+  }, [item.rating]);
+
+  function updateRating(target: "like" | "dislike") {
+    const previous = rating;
+    const next = nextRating(rating, target);
+    setRatingLocal(next);
+    void setRating(item.id, next).catch(() => setRatingLocal(previous));
+  }
+
   return (
     <div className="article-actions">
       <Button
         type="button"
         size="sm"
         variant="outline"
-        className={`btn-icon ${item.rating === "like" ? "btn-like-active" : ""}`}
+        className={`btn-icon ${rating === "like" ? "btn-like-active" : ""}`}
         aria-label="Like"
-        aria-pressed={item.rating === "like"}
-        onClick={() => void setRating(item.id, nextRating(item.rating, "like"))}
+        aria-pressed={rating === "like"}
+        onClick={() => updateRating("like")}
       >
         <ThumbsUp size={20} aria-hidden />
       </Button>
@@ -35,12 +49,10 @@ export function ArticleActions({ item }: Props) {
         type="button"
         size="sm"
         variant="outline"
-        className={`btn-icon ${item.rating === "dislike" ? "btn-dislike-active" : ""}`}
+        className={`btn-icon ${rating === "dislike" ? "btn-dislike-active" : ""}`}
         aria-label="Dislike"
-        aria-pressed={item.rating === "dislike"}
-        onClick={() =>
-          void setRating(item.id, nextRating(item.rating, "dislike"))
-        }
+        aria-pressed={rating === "dislike"}
+        onClick={() => updateRating("dislike")}
       >
         <ThumbsDown size={20} aria-hidden />
       </Button>

@@ -12,10 +12,10 @@ import {
   ARTICLE_DOMAINS,
   ARTICLE_TYPES,
 } from "@/lib/curation-picklists";
-import type { ItemRow } from "@/lib/types";
 
-type Props = {
-  item: ItemRow;
+type CurationProps = {
+  curation: CurationV1;
+  onPatch: (patch: Partial<CurationV1>) => void;
 };
 
 const SCORE_ROWS = [
@@ -36,15 +36,11 @@ const SCORE_ROWS = [
   },
 ];
 
-async function patchCuration(item: ItemRow, patch: Partial<CurationV1>) {
-  await setCuration(item.id, { ...item.curation, v: 1, ...patch });
-}
-
-export function CurationScores({ item }: Props) {
+export function CurationScores({ curation, onPatch }: CurationProps) {
   return (
     <div className="curation-scores">
       {SCORE_ROWS.map(({ field, label, aria }) => {
-        const current = item.curation[field];
+        const current = curation[field];
         return (
           <div
             key={field}
@@ -68,7 +64,7 @@ export function CurationScores({ item }: Props) {
                     title={`${value}`}
                     className={`curation-score-btn curation-score-btn--${value}${selected ? " curation-score-btn--selected" : ""}`}
                     onClick={() =>
-                      void patchCuration(item, {
+                      onPatch({
                         [field]: nextScore(current, value as ScoreValue),
                       })
                     }
@@ -85,13 +81,14 @@ export function CurationScores({ item }: Props) {
   );
 }
 
-export function CurationChips({ item }: Props) {
-  const types = item.curation.article_types ?? [];
-  const domains = item.curation.article_domains ?? [];
+export function CurationChips({ curation, onPatch }: CurationProps) {
+  const types = curation.article_types ?? [];
+  const domains = curation.article_domains ?? [];
+  const domainRows = balanceIntoRows([...ARTICLE_DOMAINS], 2, (tag) => tag.length);
 
   return (
     <div className="curation-chips">
-      <div className="curation-chip-group">
+      <div className="curation-chip-group curation-chip-group--types">
         {ARTICLE_TYPES.map((tag) => {
           const active = types.includes(tag);
           return (
@@ -101,7 +98,7 @@ export function CurationChips({ item }: Props) {
               className={`curation-chip curation-chip--type${active ? " curation-chip--active" : ""}`}
               aria-pressed={active}
               onClick={() =>
-                void patchCuration(item, {
+                onPatch({
                   article_types: toggleTag(types, tag),
                 })
               }
@@ -111,26 +108,80 @@ export function CurationChips({ item }: Props) {
           );
         })}
       </div>
-      <div className="curation-chip-group">
-        {ARTICLE_DOMAINS.map((tag) => {
-          const active = domains.includes(tag);
-          return (
-            <button
-              key={`domain-${tag}`}
-              type="button"
-              className={`curation-chip curation-chip--domain${active ? " curation-chip--active" : ""}`}
-              aria-pressed={active}
-              onClick={() =>
-                void patchCuration(item, {
-                  article_domains: toggleTag(domains, tag),
-                })
-              }
-            >
-              {tag}
-            </button>
-          );
-        })}
+      <div className="curation-chip-group curation-chip-group--domains">
+        {domainRows.map((row, rowIndex) => (
+          <div key={`domain-row-${rowIndex}`} className="curation-chip-row">
+            {row.map((tag) => {
+              const active = domains.includes(tag);
+              return (
+                <button
+                  key={`domain-${tag}`}
+                  type="button"
+                  className={`curation-chip curation-chip--domain${active ? " curation-chip--active" : ""}`}
+                  aria-pressed={active}
+                  onClick={() =>
+                    onPatch({
+                      article_domains: toggleTag(domains, tag),
+                    })
+                  }
+                >
+                  {tag}
+                </button>
+              );
+            })}
+          </div>
+        ))}
       </div>
     </div>
   );
+}
+
+function balanceIntoRows<T>(
+  items: readonly T[],
+  rowCount: number,
+  weight: (item: T) => number,
+): T[][] {
+  if (items.length === 0 || rowCount <= 0) {
+    return [];
+  }
+
+  const perRow = Math.ceil(items.length / rowCount);
+  const rows = Array.from({ length: rowCount }, () => [] as T[]);
+  const totals = Array.from({ length: rowCount }, () => 0);
+  const sorted = [...items].sort((a, b) => weight(b) - weight(a));
+
+  for (const item of sorted) {
+    let target = 0;
+    for (let index = 1; index < rowCount; index += 1) {
+      const rowHasCapacity = rows[index].length < perRow;
+      const targetHasCapacity = rows[target].length < perRow;
+      if (!rowHasCapacity) {
+        continue;
+      }
+      if (!targetHasCapacity || totals[index] < totals[target]) {
+        target = index;
+      }
+    }
+    rows[target].push(item);
+    totals[target] += weight(item);
+  }
+
+  const order = new Map(items.map((item, index) => [item, index]));
+  for (const row of rows) {
+    row.sort((a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0));
+  }
+
+  return rows.filter((row) => row.length > 0);
+}
+
+export function patchCurationOptimistic(
+  itemId: number,
+  curation: CurationV1,
+  patch: Partial<CurationV1>,
+  setCurationLocal: (next: CurationV1) => void,
+) {
+  const previous = curation;
+  const next = { ...curation, v: 1 as const, ...patch };
+  setCurationLocal(next);
+  void setCuration(itemId, next).catch(() => setCurationLocal(previous));
 }

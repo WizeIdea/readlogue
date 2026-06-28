@@ -1,13 +1,18 @@
 "use client";
 
-import type { KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 
 import { setRead } from "@/app/actions";
+import type { CurationV1 } from "@/lib/curation";
 import { sourceDisplayNameLoose } from "@/lib/sources";
 import type { ItemRow } from "@/lib/types";
 
 import { ArticleActions } from "./article-actions";
-import { CurationChips, CurationScores } from "./article-curation";
+import {
+  CurationChips,
+  CurationScores,
+  patchCurationOptimistic,
+} from "./article-curation";
 
 type Props = {
   item: ItemRow;
@@ -32,11 +37,25 @@ function formatMeta(item: ItemRow): string {
 }
 
 export function ArticleRow({ item }: Props) {
-  const rowClass = item.read_at ? "article-row article-row--read" : "article-row";
-  const isRead = Boolean(item.read_at);
+  const [readAt, setReadAt] = useState(item.read_at);
+  const [curation, setCuration] = useState<CurationV1>(item.curation);
+
+  useEffect(() => {
+    setReadAt(item.read_at);
+  }, [item.read_at]);
+
+  useEffect(() => {
+    setCuration(item.curation);
+  }, [item.curation]);
+
+  const isRead = Boolean(readAt);
+  const rowClass = isRead ? "article-row article-row--read" : "article-row";
 
   function toggleRead() {
-    void setRead(item.id, !isRead);
+    const previous = readAt;
+    const nextRead = !isRead;
+    setReadAt(nextRead ? new Date().toISOString() : null);
+    void setRead(item.id, nextRead).catch(() => setReadAt(previous));
   }
 
   function onReadTargetKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -46,11 +65,21 @@ export function ArticleRow({ item }: Props) {
     }
   }
 
+  function onCurationPatch(patch: Partial<CurationV1>) {
+    patchCurationOptimistic(item.id, curation, patch, setCuration);
+  }
+
+  const curationProps = {
+    curation,
+    onPatch: onCurationPatch,
+  };
+
   return (
     <article className={rowClass}>
       <div className="article-col-left">
         <ArticleActions item={item} />
-        <CurationScores item={item} />
+        <CurationScores {...curationProps} />
+        <CurationChips {...curationProps} />
       </div>
 
       <div className="article-col-middle">
@@ -73,7 +102,6 @@ export function ArticleRow({ item }: Props) {
             <p className="article-summary">{item.summary}</p>
           )}
         </div>
-        <CurationChips item={item} />
       </div>
 
       <div className="article-col-hero">
