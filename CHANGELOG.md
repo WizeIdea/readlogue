@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.9] - 2026-06-28
+
+### Added
+- Vendor/lab blog sources: `thinking-machines-blog` (native RSS at `thinkingmachines.ai`), `google-developers-blog-ai`, `meta-ai-blog`, `groq-blog` — listing profiles under [`config/sources/`](config/sources/)
+- [`docs/BLOCKED_SOURCES.md`](docs/BLOCKED_SOURCES.md) — blocked, digest-only, and deferred sources with GHA failure notes and alternatives
+- RSS `settings.allowed_url_prefixes` — filter feed entries to a URL prefix (e.g. `ai-gov-blog` blog-only from site-wide RSS)
+- `VendorBlogListingProfileTests` and config guard ensuring only [`docs/BLOCKED_SOURCES.md`](docs/BLOCKED_SOURCES.md) entries stay disabled
+
+### Changed
+- GHA ingest enables **all configured sources** except the eight listed in [`docs/BLOCKED_SOURCES.md`](docs/BLOCKED_SOURCES.md) (`the-batch`, `turing-blog`, `acm-technews`, `unimelb-newsroom-*`, `ai-gov-blog`, `dta-news-ai`, `industry-gov-news`)
+- `meta-ai-blog` listing profile targets card containers (`div._8xiz`, featured hero) instead of every blog anchor
+- HTTP read-timeout on `requests` auto-retries via Playwright in `_fetch_html` (shared fallback for listing and article fetches)
+
+### Fixed
+- `_fetch_article` prefers article-extracted summary over listing-page teaser text — Meta AI `items.summary` no longer stores `"FEATURED"` or `"Learn More"` from index cards
+- `atse-news` listing selector matches relative `/news/…` paths (validated on GHA: 9 articles per run)
+- Industry.gov.au listing: Playwright `--disable-http2` and `wait_until` retry chain (still times out on GHA; documented as blocked)
+
+### Notes
+- Truncate DB before re-ingest to refresh Meta AI summaries on existing rows (ingest skips known fingerprints)
+- `oaic-ai-blog` and `atse-news` re-enabled with the full source set
+- Wiley AI Magazine, Sydney/Monash/CAIDE/CSIRO probes documented in `BLOCKED_SOURCES.md` but not added to config
+
 ## [1.4.8] - 2026-06-28
 
 ### Added

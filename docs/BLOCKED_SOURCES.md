@@ -259,10 +259,10 @@ This file records sources we **cannot reliably ingest on GHA today**, why, and w
 | | |
 |---|---|
 | **URL** | `https://www.atse.org.au/news/` (plain listing; filtered tag URL was abandoned) |
-| **Config** | `atse-news`, `enabled: false` after **successful GHA validation** |
-| **Status** | **GHA OK** — disabled only to narrow test runs |
+| **Config** | `atse-news` |
+| **Status** | **GHA OK** — enabled in default ingest |
 
-**Note:** Initially failed due to wrong selector (`a[href*="atse.org.au/news/"]` vs relative `/news/...` paths). Fixed to `a[href*="/news/"]`; **9 articles imported on GHA**. Re-enable when adding AU gov batch back.
+**Note:** Initially failed due to wrong selector (`a[href*="atse.org.au/news/"]` vs relative `/news/...` paths). Fixed to `a[href*="/news/"]`; **9 articles imported on GHA**.
 
 ---
 
@@ -271,10 +271,16 @@ This file records sources we **cannot reliably ingest on GHA today**, why, and w
 | | |
 |---|---|
 | **URL** | Filtered blog listing with `/s/redirect?url=…` links |
-| **Config** | `oaic-ai-blog`, **enabled** (current GHA test batch) |
-| **Status** | **Works on GHA** (3 articles/run) |
+| **Config** | `oaic-ai-blog` |
+| **Status** | **GHA OK** — enabled in default ingest |
 
-Documented here for contrast — same batch as blocked `.gov.au` hosts above.
+Documented here for contrast — same ingest batch as blocked `.gov.au` hosts above; not blocked.
+
+---
+
+## Default ingest (enabled sources)
+
+All entries in [`config.yaml`](../config.yaml) are **enabled** except the eight sources in the sections above marked **Blocked (GHA)**, **Blocked (everywhere)**, or **Digest-only**: `the-batch`, `turing-blog`, `acm-technews`, `unimelb-newsroom-eng-it`, `unimelb-newsroom-education`, `ai-gov-blog`, `dta-news-ai`, `industry-gov-news`.
 
 ---
 

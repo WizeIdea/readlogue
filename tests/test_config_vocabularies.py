@@ -8,6 +8,20 @@ from reader.config import load_config
 REPO_ROOT = Path(__file__).resolve().parents[1]
 CONFIG_PATH = REPO_ROOT / "config.yaml"
 
+# Keep in sync with docs/BLOCKED_SOURCES.md
+BLOCKED_SOURCES = frozenset(
+    {
+        "the-batch",
+        "turing-blog",
+        "acm-technews",
+        "unimelb-newsroom-eng-it",
+        "unimelb-newsroom-education",
+        "ai-gov-blog",
+        "dta-news-ai",
+        "industry-gov-news",
+    }
+)
+
 
 class ConfigVocabularyTests(unittest.TestCase):
     def test_config_loads_curation_vocabularies(self) -> None:
@@ -15,7 +29,7 @@ class ConfigVocabularyTests(unittest.TestCase):
         self.assertIn("research", config.article_types)
         self.assertIn("LLMs", config.article_domains)
 
-    def test_gha_batch_enables_only_meta_ai_blog(self) -> None:
+    def test_only_blocked_sources_are_disabled(self) -> None:
         config = load_config(CONFIG_PATH)
-        enabled = {source.name for source in config.sources if source.enabled}
-        self.assertEqual(enabled, {"meta-ai-blog"})
+        disabled = {source.name for source in config.sources if not source.enabled}
+        self.assertEqual(disabled, set(BLOCKED_SOURCES))

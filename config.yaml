@@ -41,12 +41,11 @@ article_domains:
   - policy
 
 sources:
-  # --- GHA test batch: meta-ai-blog only (summary fix validation) ---
+  # Disabled sources: see docs/BLOCKED_SOURCES.md
   - name: csail-news
     kind: listing
     url: https://www.csail.mit.edu/news/
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/csail-news.yaml
     settings:
       default_category: Education
@@ -55,7 +54,6 @@ sources:
     kind: listing
     url: https://oecd.ai/en/wonk
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/oecd-ai-wonk.yaml
     settings:
       default_category: Governance and Policy
@@ -64,7 +62,6 @@ sources:
     kind: rss
     url: https://partnershiponai.org/feed/
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Governance and Policy
@@ -73,7 +70,6 @@ sources:
     kind: rss
     url: https://ainowinstitute.org/publications/feed
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Governance and Policy
@@ -82,7 +78,6 @@ sources:
     kind: listing
     url: https://digital-strategy.ec.europa.eu/en/news
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/eu-digital-strategy-news.yaml
     settings:
       default_category: Governance and Policy
@@ -91,7 +86,6 @@ sources:
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/aisi-blog.xml
     scraper: rss
-    enabled: false
     config: config/sources/aisi-blog.yaml
     settings:
       fetcher: playwright
@@ -121,7 +115,6 @@ sources:
     kind: rss
     url: https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: AI News
@@ -130,7 +123,6 @@ sources:
     kind: rss
     url: https://spectrum.ieee.org/feeds/topic/computing.rss
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: AI News
@@ -148,7 +140,6 @@ sources:
     kind: rss
     url: https://spectrum.ieee.org/feeds/feed.rss
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: News Digests
@@ -188,7 +179,6 @@ sources:
     kind: listing
     url: https://www.atse.org.au/news/
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/atse-news.yaml
     settings:
       default_category: Governance and Policy
@@ -206,7 +196,6 @@ sources:
     kind: listing
     url: https://www.oaic.gov.au/news/blog?query=&sort=dmetapublishedDateISO&num_ranks=10&f.Topic%7Ctopic=Artificial+intelligence
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/oaic-ai-blog.yaml
     settings:
       default_category: Governance and Policy
@@ -224,7 +213,6 @@ sources:
     kind: listing
     url: https://www.rmit.edu.au/news/technology
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/rmit-news-technology.yaml
     settings:
       default_category: Education
@@ -233,7 +221,6 @@ sources:
     kind: listing
     url: https://ai.anu.edu.au/news
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/anu-integrated-ai-news.yaml
     settings:
       default_category: Education
@@ -242,17 +229,15 @@ sources:
     kind: rss
     url: https://research.qut.edu.au/genailab/feed/
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Education
 
-  # --- Tested OK — enable with next batch of new sources ---
+  # --- Tested OK ---
   - name: anthropic-engineering
     kind: listing
     url: https://www.anthropic.com/engineering
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/anthropic-engineering.yaml
     settings:
       default_category: Technical Research
@@ -261,7 +246,6 @@ sources:
     kind: listing
     url: https://www.anthropic.com/research/team/frontier-red-team
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/anthropic-frontier-red-team.yaml
     settings:
       default_category: Technical Research
@@ -270,7 +254,6 @@ sources:
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/allenai-news.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: AI News
@@ -279,7 +262,6 @@ sources:
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/mistral-news.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Vendor News
@@ -288,7 +270,6 @@ sources:
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/tldr-ai.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: News Digests
@@ -298,7 +279,6 @@ sources:
     kind: rss
     url: https://huggingface.co/blog/feed.xml
     scraper: rss
-    enabled: false
     config: config/sources/huggingface-blog.yaml
     settings:
       max_entries: 25
@@ -308,7 +288,6 @@ sources:
     kind: rss
     url: https://www.microsoft.com/en-us/research/blog/feed/
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Technical Research
@@ -317,7 +296,6 @@ sources:
     kind: rss
     url: https://openai.com/news/engineering/rss.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Technical Research
@@ -326,7 +304,6 @@ sources:
     kind: rss
     url: https://openai.com/news/rss.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Vendor News
@@ -335,7 +312,6 @@ sources:
     kind: rss
     url: https://importai.substack.com/feed
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: News Digests
@@ -344,7 +320,6 @@ sources:
     kind: rss
     url: https://www.nist.gov/news-events/news/rss.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Governance and Policy
@@ -353,17 +328,15 @@ sources:
     kind: rss
     url: https://www.nist.gov/news-events/information%20technology/rss.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Governance and Policy
 
-  # --- Other existing sources (tested OK) — add enabled: true when re-ingesting ---
+  # --- Other existing sources (tested OK) ---
   - name: huggingface-ethics
     kind: api_tag
     url: https://huggingface.co/blog?tag=ethics
     scraper: requests
-    enabled: false
     config: config/sources/huggingface-ethics.yaml
     settings:
       default_category: Governance and Policy
@@ -372,7 +345,6 @@ sources:
     kind: api_tag
     url: https://huggingface.co/blog?tag=research
     scraper: requests
-    enabled: false
     config: config/sources/huggingface-research.yaml
     settings:
       default_category: Technical Research
@@ -381,7 +353,6 @@ sources:
     kind: rss
     url: https://deepmind.google/blog/rss.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: Technical Research
@@ -390,7 +361,6 @@ sources:
     kind: rss
     url: https://thinkingmachines.ai/blog/index.xml
     scraper: rss
-    enabled: false
     settings:
       max_entries: 25
       default_category: AI News
@@ -399,7 +369,6 @@ sources:
     kind: listing
     url: https://developers.googleblog.com/search/?technology_categories=AI
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/google-developers-blog-ai.yaml
     settings:
       default_category: AI News
@@ -408,7 +377,6 @@ sources:
     kind: listing
     url: https://ai.meta.com/blog/
     scraper: beautifulsoup
-    enabled: true
     config: config/sources/meta-ai-blog.yaml
     settings:
       default_category: AI News
@@ -417,7 +385,6 @@ sources:
     kind: listing
     url: https://groq.com/blog
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/groq-blog.yaml
     settings:
       default_category: Vendor News
@@ -426,7 +393,6 @@ sources:
     kind: listing
     url: https://www.anthropic.com/research
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/anthropic-research.yaml
     settings:
       default_category: Technical Research
@@ -435,7 +401,6 @@ sources:
     kind: listing
     url: https://www.anthropic.com/news
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/anthropic-news.yaml
     settings:
       max_entries: 25    
@@ -445,7 +410,6 @@ sources:
     kind: listing
     url: https://hai.stanford.edu/news
     scraper: beautifulsoup
-    enabled: false
     config: config/sources/stanford-hai-news.yaml
     settings:
       default_category: Education
@@ -454,7 +418,6 @@ sources:
     kind: listing
     url: https://bair.berkeley.edu/blog/
     scraper: requests
-    enabled: false
     config: config/sources/bair-blog.yaml
     settings:
       default_category: Education    
