@@ -1,0 +1,17 @@
+fetcher: requests
+item_selector: li.search-result a[href]
+link_selector: li.search-result a[href]
+allowed_url_prefixes:
+  - https://developers.googleblog.com/
+excluded_url_substrings:
+  - /search
+title_selectors:
+  - h1
+date_selectors:
+  - time[datetime]
+  - time
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 25

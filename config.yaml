@@ -41,7 +41,7 @@ article_domains:
   - policy
 
 sources:
-  # --- Next GHA run: AU gov sources (oaic, ai-gov, dta, industry, atse) ---
+  # --- GHA test batch: thinking-machines, google-dev-ai, meta-ai, groq ---
   - name: csail-news
     kind: listing
     url: https://www.csail.mit.edu/news/
@@ -175,6 +175,7 @@ sources:
     kind: rss
     url: https://www.ai.gov.au/rss.xml
     scraper: rss
+    enabled: false
     config: config/sources/ai-gov-blog.yaml
     settings:
       max_entries: 25
@@ -187,6 +188,7 @@ sources:
     kind: listing
     url: https://www.atse.org.au/news/
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/atse-news.yaml
     settings:
       default_category: Governance and Policy
@@ -195,6 +197,7 @@ sources:
     kind: listing
     url: https://www.dta.gov.au/articles
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/dta-news-ai.yaml
     settings:
       default_category: Governance and Policy
@@ -203,6 +206,7 @@ sources:
     kind: listing
     url: https://www.oaic.gov.au/news/blog?query=&sort=dmetapublishedDateISO&num_ranks=10&f.Topic%7Ctopic=Artificial+intelligence
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/oaic-ai-blog.yaml
     settings:
       default_category: Governance and Policy
@@ -211,6 +215,7 @@ sources:
     kind: listing
     url: https://www.industry.gov.au/news?news-entity%5B3988%5D=3988&news-entity%5B3333%5D=3333&field_news_date_value=All
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/industry-gov-news.yaml
     settings:
       default_category: Governance and Policy
@@ -380,6 +385,38 @@ sources:
     settings:
       max_entries: 25
       default_category: Technical Research
+
+  - name: thinking-machines-blog
+    kind: rss
+    url: https://thinkingmachines.ai/blog/index.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: AI News
+
+  - name: google-developers-blog-ai
+    kind: listing
+    url: https://developers.googleblog.com/search/?technology_categories=AI
+    scraper: beautifulsoup
+    config: config/sources/google-developers-blog-ai.yaml
+    settings:
+      default_category: AI News
+
+  - name: meta-ai-blog
+    kind: listing
+    url: https://ai.meta.com/blog/
+    scraper: beautifulsoup
+    config: config/sources/meta-ai-blog.yaml
+    settings:
+      default_category: AI News
+
+  - name: groq-blog
+    kind: listing
+    url: https://groq.com/blog
+    scraper: beautifulsoup
+    config: config/sources/groq-blog.yaml
+    settings:
+      default_category: Vendor News
 
   - name: anthropic-research
     kind: listing

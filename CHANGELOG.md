@@ -27,10 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - Apply Supabase migration [`005_item_curation.sql`](supabase/migrations/005_item_curation.sql) before sync if the `curation` column is missing
-- `ai-gov-blog` switched to site RSS (`/rss.xml`) with blog-only URL prefix filter — listing HTML times out from GHA
-- `dta-news-ai` listing URL changed to `/articles` — lighter than filtered `/news` query page
-- `industry-gov-news` uses `listing_fetcher: requests` — Playwright listing timed out on GHA
-- HTTP `ReadTimeout` / connection errors on `requests` auto-retry via Playwright (same as 403)
+- `ai-gov-blog`, `dta-news-ai`, `industry-gov-news` disabled — `www.ai.gov.au`, `www.dta.gov.au`, and `www.industry.gov.au` read-timeout from GitHub Actions datacenter IPs (requests and Playwright); work locally
+- `atse-news` disabled after successful GHA validation
+- GHA test batch (Jun 2026): only `thinking-machines-blog`, `google-developers-blog-ai`, `meta-ai-blog`, `groq-blog` enabled
 - RMIT technology listing exposes ~9 articles per run (Load More is JS-only)
 - IEEE topic feeds overlap with the main feed; URL fingerprint dedupe prevents duplicate rows
 

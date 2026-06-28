@@ -880,6 +880,88 @@ class AuGovListingHelpersTests(unittest.TestCase):
         self.assertIn("https://www.atse.org.au/news/budget-sets-australia-up-for-a-stem-powered-future", urls)
 
 
+class VendorBlogListingProfileTests(unittest.TestCase):
+    def test_google_developers_ai_listing_profile_discovers_articles(self) -> None:
+        from reader.config import load_listing_profile
+        from reader.scrapers import parse_listing_articles
+
+        profile = load_listing_profile("config/sources/google-developers-blog-ai.yaml")
+        html = """
+        <html><body>
+          <li class="search-result">
+            <a href="/sample-ai-post/">Sample AI post</a>
+          </li>
+          <li class="search-result">
+            <a href="/search/?technology_categories=AI">Search again</a>
+          </li>
+        </body></html>
+        """
+        articles = parse_listing_articles(
+            "https://developers.googleblog.com/search/?technology_categories=AI",
+            html=html,
+            fetcher=profile.fetcher,
+            item_selector=profile.item_selector,
+            link_selector=profile.link_selector,
+            allowed_url_prefixes=tuple(profile.allowed_url_prefixes),
+            excluded_url_substrings=tuple(profile.excluded_url_substrings),
+            max_links=profile.max_links,
+        )
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(
+            articles[0].url,
+            "https://developers.googleblog.com/sample-ai-post",
+        )
+
+    def test_meta_ai_listing_profile_discovers_blog_links(self) -> None:
+        from reader.config import load_listing_profile
+        from reader.scrapers import parse_listing_articles
+
+        profile = load_listing_profile("config/sources/meta-ai-blog.yaml")
+        html = """
+        <html><body>
+          <a href="https://ai.meta.com/blog/">Blog index</a>
+          <a href="https://ai.meta.com/blog/sample-research-post/">Sample research post</a>
+        </body></html>
+        """
+        articles = parse_listing_articles(
+            "https://ai.meta.com/blog/",
+            html=html,
+            fetcher=profile.fetcher,
+            item_selector=profile.item_selector,
+            link_selector=profile.link_selector,
+            allowed_url_prefixes=tuple(profile.allowed_url_prefixes),
+            max_links=profile.max_links,
+        )
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].url, "https://ai.meta.com/blog/sample-research-post")
+
+    def test_groq_listing_profile_discovers_blog_links(self) -> None:
+        from reader.config import load_listing_profile
+        from reader.scrapers import parse_listing_articles
+
+        profile = load_listing_profile("config/sources/groq-blog.yaml")
+        html = """
+        <html><body>
+          <a href="/blog/">Blog index</a>
+          <a href="/blog/inside-the-lpu-deconstructing-groq-speed">Inside the LPU</a>
+        </body></html>
+        """
+        articles = parse_listing_articles(
+            "https://groq.com/blog",
+            html=html,
+            fetcher=profile.fetcher,
+            item_selector=profile.item_selector,
+            link_selector=profile.link_selector,
+            allowed_url_prefixes=tuple(profile.allowed_url_prefixes),
+            max_links=profile.max_links,
+        )
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(
+            articles[0].url,
+            "https://groq.com/blog/inside-the-lpu-deconstructing-groq-speed",
+        )
+
+
 class UrlIgnoreCheckerTests(unittest.TestCase):
     def test_exact_url_match_ignores_normalized_url(self) -> None:
         checker = build_url_ignore_checker(
