@@ -106,6 +106,63 @@ def _content_clean_rules_for_source(source_config) -> ContentCleanRules:
     return load_content_clean_rules(source_config.settings)
 
 
+def _record_from_rss_entry(
+    connection,
+    raw,
+    source_config,
+    *,
+    stats: IngestStats | None = None,
+) -> ArticleRecord | None:
+    """Build an ArticleRecord from RSS feed body only (no article-page fetch)."""
+    import logging
+
+    from reader.storage import ArticleRecord, log_ingestion_failure
+    from reader.validation import validate_content
+
+    logger = logging.getLogger(__name__)
+    if stats is not None:
+        stats.fetched += 1
+
+    title = raw.title or raw.url
+    content = raw.content or raw.summary or ""
+    quality = validate_content(title, content, raw.url, source_config.name)
+    if not quality.is_valid:
+        if stats is not None:
+            stats.validation_failed += 1
+        log_ingestion_failure(
+            connection,
+            source_config.name,
+            raw.url,
+            quality.reason or "unknown validation failure",
+        )
+        logger.warning(
+            "Skipping RSS-only article %s from '%s': %s",
+            raw.url,
+            source_config.name,
+            quality.reason,
+        )
+        return None
+
+    logger.info(
+        "Accepted RSS-only %s (%d words)",
+        raw.url,
+        quality.word_count,
+    )
+    return ArticleRecord(
+        source_name=source_config.name,
+        source_url=source_config.url,
+        url=raw.url,
+        title=title,
+        summary=raw.summary or content,
+        content=content,
+        published_at=raw.published_at,
+        source_scraper=source_config.scraper,
+        source_category=raw.source_category,
+        category=None,
+        author=raw.author,
+    )
+
+
 def _handle_rss_source(
     source_config,
     connection,
@@ -123,6 +180,7 @@ def _handle_rss_source(
 
     max_entries = int(source_config.settings.get("max_entries", 25))
     fetcher = str(source_config.settings.get("fetcher", "requests"))
+    use_feed_content = bool(source_config.settings.get("use_feed_content", False))
     articles = []
     raw_articles = parse_rss_feed(source_config.name, source_config.url, max_entries=max_entries)
     existing_fingerprints = existing_item_fingerprints(connection, [raw.url for raw in raw_articles])
@@ -163,14 +221,22 @@ def _handle_rss_source(
             continue
         fingerprint = item_fingerprint(raw.url) if raw.url and raw.url.strip() else None
         try:
-            record = _fetch_article(
-                connection, raw.url, source_config.name, source_config.url, None, profile,
-                raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
-                fetcher=fetcher, stats=stats,
-                content_clean_rules=(
-                    profile.content_clean if profile is not None else _content_clean_rules_for_source(source_config)
-                ),
-            )
+            if use_feed_content:
+                record = _record_from_rss_entry(
+                    connection,
+                    raw,
+                    source_config,
+                    stats=stats,
+                )
+            else:
+                record = _fetch_article(
+                    connection, raw.url, source_config.name, source_config.url, None, profile,
+                    raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
+                    fetcher=fetcher, stats=stats,
+                    content_clean_rules=(
+                        profile.content_clean if profile is not None else _content_clean_rules_for_source(source_config)
+                    ),
+                )
         except requests.HTTPError as exc:
             from reader.storage import log_ingestion_failure
 

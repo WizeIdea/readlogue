@@ -380,6 +380,47 @@ class RssSourceHandlerTests(unittest.TestCase):
 
     @patch("reader.scrapers._fetch_article")
     @patch("reader.scrapers.parse_rss_feed")
+    def test_rss_use_feed_content_skips_fetch(self, parse_feed: Mock, fetch_article: Mock) -> None:
+        from reader.config import SourceConfig
+        from reader.scrapers import _handle_rss_source
+        from reader.storage import ArticleRecord, connect, initialize
+
+        digest_body = " ".join(f"word{i}" for i in range(60))
+        parse_feed.return_value = [
+            ArticleRecord(
+                source_name="acm-technews",
+                source_url="https://rss.acm.org/technews/technews.xml",
+                url="https://example.com/external-story",
+                title="External Story",
+                summary=digest_body,
+                content=digest_body,
+                published_at="2026-06-25",
+            )
+        ]
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "reader.db"
+            initialize(db_path)
+            with connect(db_path) as connection:
+                source = SourceConfig(
+                    name="acm-technews",
+                    kind="rss",
+                    url="https://rss.acm.org/technews/technews.xml",
+                    settings={
+                        "max_entries": 25,
+                        "default_category": "News Digests",
+                        "use_feed_content": True,
+                    },
+                )
+                articles = _handle_rss_source(source, connection)
+
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].content, digest_body)
+        self.assertEqual(articles[0].category, "News Digests")
+        fetch_article.assert_not_called()
+
+    @patch("reader.scrapers._fetch_article")
+    @patch("reader.scrapers.parse_rss_feed")
     def test_rss_continues_after_http_error_on_one_url(
         self, parse_feed: Mock, fetch_article: Mock
     ) -> None:

@@ -41,7 +41,7 @@ article_domains:
   - policy
 
 sources:
-  # --- Next GHA run: aisi-blog + the-batch only ---
+  # --- Next GHA run: aisi-blog, the-batch, ieee-spectrum*, acm-technews ---
   - name: csail-news
     kind: listing
     url: https://www.csail.mit.edu/news/
@@ -110,6 +110,39 @@ sources:
   - name: the-batch
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/the-batch.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: News Digests
+
+  - name: ieee-spectrum-ai
+    kind: rss
+    url: https://spectrum.ieee.org/feeds/topic/artificial-intelligence.rss
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: AI News
+
+  - name: ieee-spectrum-computing
+    kind: rss
+    url: https://spectrum.ieee.org/feeds/topic/computing.rss
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: AI News
+
+  - name: acm-technews
+    kind: rss
+    url: https://rss.acm.org/technews/technews.xml
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: News Digests
+      use_feed_content: true
+
+  - name: ieee-spectrum
+    kind: rss
+    url: https://spectrum.ieee.org/feeds/feed.rss
     scraper: rss
     settings:
       max_entries: 25
