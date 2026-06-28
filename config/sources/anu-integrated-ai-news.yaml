@@ -1,0 +1,19 @@
+fetcher: requests
+item_selector: a[href*="ai.anu.edu.au/news/"]
+link_selector: a[href*="ai.anu.edu.au/news/"]
+allowed_url_prefixes:
+  - https://ai.anu.edu.au/news/
+excluded_url_substrings:
+  - /news$
+title_selectors:
+  - h1
+  - h2
+  - h3
+date_selectors:
+  - time[datetime]
+  - time
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 25

@@ -653,6 +653,61 @@ class HeroImageExtractionTests(unittest.TestCase):
         )
 
 
+class AuUniversityListingProfileTests(unittest.TestCase):
+    def test_anu_listing_profile_discovers_news_links(self) -> None:
+        from reader.config import load_listing_profile
+        from reader.scrapers import parse_listing_articles
+
+        profile = load_listing_profile("config/sources/anu-integrated-ai-news.yaml")
+        html = """
+        <html><body>
+          <a href="https://ai.anu.edu.au/news">News index</a>
+          <a href="https://ai.anu.edu.au/news/sample-article-slug">Sample article</a>
+        </body></html>
+        """
+        articles = parse_listing_articles(
+            "https://ai.anu.edu.au/news",
+            html=html,
+            fetcher=profile.fetcher,
+            item_selector=profile.item_selector,
+            link_selector=profile.link_selector,
+            allowed_url_prefixes=tuple(profile.allowed_url_prefixes),
+            excluded_url_substrings=tuple(profile.excluded_url_substrings),
+            max_links=profile.max_links,
+        )
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].url, "https://ai.anu.edu.au/news/sample-article-slug")
+
+    def test_rmit_listing_profile_discovers_all_news_links(self) -> None:
+        from reader.config import load_listing_profile
+        from reader.scrapers import parse_listing_articles
+
+        profile = load_listing_profile("config/sources/rmit-news-technology.yaml")
+        html = """
+        <html><body>
+          <a href="/news/technology">Technology hub</a>
+          <a href="/news/all-news/2026/jun/camera-chip">Camera chip</a>
+          <a href="/news/all-news/2026/jun/infection-detection/times-higher-ed">External</a>
+        </body></html>
+        """
+        articles = parse_listing_articles(
+            "https://www.rmit.edu.au/news/technology",
+            html=html,
+            fetcher=profile.fetcher,
+            item_selector=profile.item_selector,
+            link_selector=profile.link_selector,
+            allowed_url_prefixes=tuple(profile.allowed_url_prefixes),
+            excluded_url_substrings=tuple(profile.excluded_url_substrings),
+            max_links=profile.max_links,
+        )
+        urls = {article.url for article in articles}
+        self.assertIn("https://www.rmit.edu.au/news/all-news/2026/jun/camera-chip", urls)
+        self.assertNotIn(
+            "https://www.rmit.edu.au/news/all-news/2026/jun/infection-detection/times-higher-ed",
+            urls,
+        )
+
+
 class UrlIgnoreCheckerTests(unittest.TestCase):
     def test_exact_url_match_ignores_normalized_url(self) -> None:
         checker = build_url_ignore_checker(

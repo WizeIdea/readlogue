@@ -1,0 +1,18 @@
+fetcher: requests
+item_selector: a[href*="/news/all-news/"]
+link_selector: a[href*="/news/all-news/"]
+allowed_url_prefixes:
+  - https://www.rmit.edu.au/news/all-news/
+excluded_url_substrings:
+  - times-higher-ed
+title_selectors:
+  - h1
+  - h3
+date_selectors:
+  - time[datetime]
+  - time
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 25

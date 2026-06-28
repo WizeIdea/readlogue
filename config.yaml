@@ -41,7 +41,7 @@ article_domains:
   - policy
 
 sources:
-  # --- Next GHA run: aisi-blog, the-batch, ieee-spectrum*, acm-technews ---
+  # --- Next GHA run: aisi-blog, ieee-spectrum*, unimelb*, rmit, anu, qut ---
   - name: csail-news
     kind: listing
     url: https://www.csail.mit.edu/news/
@@ -111,6 +111,7 @@ sources:
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/the-batch.xml
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: News Digests
@@ -135,10 +136,10 @@ sources:
     kind: rss
     url: https://rss.acm.org/technews/technews.xml
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: News Digests
-      use_feed_content: true
 
   - name: ieee-spectrum
     kind: rss
@@ -147,6 +148,46 @@ sources:
     settings:
       max_entries: 25
       default_category: News Digests
+
+  - name: unimelb-newsroom-eng-it
+    kind: rss
+    url: https://www.unimelb.edu.au/newsroom/feed?queries_category_query=4000908
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Education
+
+  - name: unimelb-newsroom-education
+    kind: rss
+    url: https://www.unimelb.edu.au/newsroom/feed?queries_category_query=4000907
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Education
+
+  - name: rmit-news-technology
+    kind: listing
+    url: https://www.rmit.edu.au/news/technology
+    scraper: beautifulsoup
+    config: config/sources/rmit-news-technology.yaml
+    settings:
+      default_category: Education
+
+  - name: anu-integrated-ai-news
+    kind: listing
+    url: https://ai.anu.edu.au/news
+    scraper: beautifulsoup
+    config: config/sources/anu-integrated-ai-news.yaml
+    settings:
+      default_category: Education
+
+  - name: qut-genailab
+    kind: rss
+    url: https://research.qut.edu.au/genailab/feed/
+    scraper: rss
+    settings:
+      max_entries: 25
+      default_category: Education
 
   # --- Tested OK — enable with next batch of new sources ---
   - name: anthropic-engineering
