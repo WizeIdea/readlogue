@@ -1,8 +1,6 @@
 fetcher: requests
-listing_fetcher: playwright
-playwright_wait_selector: 'a[href*="atse.org.au/news/"]'
-item_selector: a[href*="atse.org.au/news/"]
-link_selector: a[href*="atse.org.au/news/"]
+item_selector: a[href*="/news/"]
+link_selector: a[href*="/news/"]
 allowed_url_prefixes:
   - https://www.atse.org.au/news/
 title_selectors:
@@ -16,3 +14,4 @@ content_selectors:
 content_root_selector: main
 paragraph_selector: article p, main p, p
 max_links: 25
+timeout: 60

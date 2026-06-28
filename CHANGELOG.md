@@ -27,7 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - Apply Supabase migration [`005_item_curation.sql`](supabase/migrations/005_item_curation.sql) before sync if the `curation` column is missing
-- UniMelb topic listing pages used instead of RSS (feeds blocked on GHA)
+- `atse-news` uses plain `/news/` listing — article links are relative paths; selector `a[href*="/news/"]` (not domain-qualified)
+- AU gov listing profiles use `timeout: 60`; Playwright fetch retries with `--disable-http2` and `wait_until=commit` fallback
 - RMIT technology listing exposes ~9 articles per run (Load More is JS-only)
 - IEEE topic feeds overlap with the main feed; URL fingerprint dedupe prevents duplicate rows
 

@@ -41,7 +41,7 @@ article_domains:
   - policy
 
 sources:
-  # --- Next GHA run: AU gov/policy sources (Governance and Policy) ---
+  # --- Next GHA run: AU gov sources (oaic, ai-gov, dta, industry, atse) ---
   - name: csail-news
     kind: listing
     url: https://www.csail.mit.edu/news/
@@ -181,7 +181,7 @@ sources:
 
   - name: atse-news
     kind: listing
-    url: https://www.atse.org.au/news/?tag=AI%7CDigital+futures%7CEducation%7CIndustry+%26+innovation%7CSTEM+education%7CTechnology&newsType=&page=1
+    url: https://www.atse.org.au/news/
     scraper: beautifulsoup
     config: config/sources/atse-news.yaml
     settings:

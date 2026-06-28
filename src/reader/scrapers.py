@@ -308,6 +308,7 @@ def _handle_listing_source(
         allowed_url_prefixes=profile.allowed_url_prefixes,
         excluded_url_substrings=profile.excluded_url_substrings,
         max_links=profile.max_links,
+        timeout=profile.timeout,
     )
     validate_listing_articles(source_config.name, source_config.url, discovered_articles)
     existing_fingerprints = existing_item_fingerprints(connection, [la.url for la in discovered_articles])
@@ -520,6 +521,7 @@ def _fetch_article(
             paragraph_selector=profile.paragraph_selector,
             content_clean=clean_rules,
             playwright_wait_selector=profile.playwright_article_wait_selector or profile.playwright_wait_selector,
+            timeout=profile.timeout,
         )
         listing_summary = listing_article.summary if listing_article is not None else summary
     else:
@@ -1267,12 +1269,47 @@ def _fetch_html_playwright(
     timeout: int,
     playwright_wait_selector: str | None = None,
 ) -> str:
+    import logging
+
+    logger = logging.getLogger(__name__)
+    last_error: Exception | None = None
+    for attempt, wait_until in enumerate(("commit", "domcontentloaded")):
+        try:
+            return _fetch_html_playwright_once(
+                url,
+                timeout,
+                playwright_wait_selector,
+                wait_until=wait_until,
+            )
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "Playwright fetch attempt %d for %s failed (wait_until=%s): %s",
+                attempt + 1,
+                url,
+                wait_until,
+                exc,
+            )
+    assert last_error is not None
+    raise last_error
+
+
+def _fetch_html_playwright_once(
+    url: str,
+    timeout: int,
+    playwright_wait_selector: str | None,
+    *,
+    wait_until: str = "commit",
+) -> str:
     playwright = _load_playwright_browser()
     with playwright() as p:
-        browser = p.chromium.launch(headless=True)
+        browser = p.chromium.launch(
+            headless=True,
+            args=["--disable-http2"],
+        )
         context = browser.new_context(user_agent=_BROWSER_USER_AGENT, locale="en-AU")
         page = context.new_page()
-        page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+        page.goto(url, wait_until=wait_until, timeout=timeout * 1000)
         if playwright_wait_selector:
             with contextlib.suppress(Exception):
                 page.wait_for_selector(playwright_wait_selector, timeout=timeout * 1000)

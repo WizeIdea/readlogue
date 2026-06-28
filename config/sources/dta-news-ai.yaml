@@ -14,3 +14,4 @@ content_selectors:
   - main
 paragraph_selector: article p, main p, p
 max_links: 25
+timeout: 60

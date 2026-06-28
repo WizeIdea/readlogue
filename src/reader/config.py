@@ -47,6 +47,7 @@ class ListingSourceProfile:
     content_root_selector: str | None = None
     paragraph_selector: str = "article p, main p, p"
     max_links: int = 25
+    timeout: int = 15
     content_clean: ContentCleanRules = ContentCleanRules()
 
 
@@ -150,6 +151,7 @@ def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:
         ),
         paragraph_selector=str(raw.get("paragraph_selector", "article p, main p, p")),
         max_links=int(raw.get("max_links", 25)),
+        timeout=int(raw.get("timeout", 15)),
         content_clean=load_content_clean_rules(raw),
     )
 

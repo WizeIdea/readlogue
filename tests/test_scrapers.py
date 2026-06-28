@@ -776,6 +776,32 @@ class AuGovListingHelpersTests(unittest.TestCase):
         self.assertEqual(len(articles), 1)
         self.assertEqual(articles[0].url, "https://www.oaic.gov.au/news/blog/sample-post")
 
+    def test_atse_listing_profile_discovers_relative_news_links(self) -> None:
+        from reader.config import load_listing_profile
+        from reader.scrapers import parse_listing_articles
+
+        profile = load_listing_profile("config/sources/atse-news.yaml")
+        html = """
+        <html><body>
+          <a href="/news/">News index</a>
+          <a href="/news/2026-27-federal-budget-wrap/">Budget wrap</a>
+          <a href="/news/budget-sets-australia-up-for-a-stem-powered-future/">STEM budget</a>
+        </body></html>
+        """
+        articles = parse_listing_articles(
+            "https://www.atse.org.au/news/",
+            html=html,
+            fetcher=profile.fetcher,
+            item_selector=profile.item_selector,
+            link_selector=profile.link_selector,
+            allowed_url_prefixes=tuple(profile.allowed_url_prefixes),
+            max_links=profile.max_links,
+        )
+        urls = {article.url for article in articles}
+        self.assertEqual(len(articles), 2)
+        self.assertIn("https://www.atse.org.au/news/2026-27-federal-budget-wrap", urls)
+        self.assertIn("https://www.atse.org.au/news/budget-sets-australia-up-for-a-stem-powered-future", urls)
+
 
 class UrlIgnoreCheckerTests(unittest.TestCase):
     def test_exact_url_match_ignores_normalized_url(self) -> None:
