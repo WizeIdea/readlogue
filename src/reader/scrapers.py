@@ -645,7 +645,7 @@ def parse_rss_feed(
                 title=entry.get("title", url),
                 summary=summary_markdown,
                 content=summary_markdown,
-                published_at=entry.get("published") or entry.get("updated"),
+                published_at=_rss_published_iso(entry),
                 source_scraper="rss",
                 source_category=_extract_rss_category(entry),
                 author=entry.get("author"),
@@ -1047,6 +1047,24 @@ def _parse_iso_date(text: str) -> str | None:
         if parsed.tzinfo is None:
             parsed = parsed.replace(tzinfo=timezone.utc)
         return parsed.isoformat()
+    return None
+
+
+def _rss_published_iso(entry) -> str | None:
+    published_parsed = entry.get("published_parsed") or entry.get("updated_parsed")
+    if published_parsed:
+        return datetime(*published_parsed[:6], tzinfo=timezone.utc).isoformat()
+    raw = entry.get("published") or entry.get("updated")
+    if not raw:
+        return None
+    cleaned = str(raw).strip()
+    iso = _parse_iso_date(cleaned)
+    if iso:
+        return iso
+    with contextlib.suppress(ValueError, TypeError):
+        from email.utils import parsedate_to_datetime
+
+        return parsedate_to_datetime(cleaned).astimezone(timezone.utc).isoformat()
     return None
 
 

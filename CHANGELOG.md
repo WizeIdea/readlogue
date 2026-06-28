@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 2026-06-29
+
+### Added
+
+- Supabase migration [`007_sort_at_timestamptz.sql`](supabase/migrations/007_sort_at_timestamptz.sql) — `sort_at` as `timestamptz` (via `safe_parse_timestamptz()`), `unread_rank` for unread-first ordering, and `idx_items_list_order`
+- [`_rss_published_iso()`](src/reader/scrapers.py) — RSS feeds now store ISO `published_at` from feedparser struct time (not raw RFC 2822 strings)
+
+### Changed
+
+- `listItemsPage` orders by `unread_rank` asc, then `sort_at` desc (`timestamptz`)
+
+### Fixed
+
+- Article list date order — text `sort_at` from migration `006` sorted RFC 2822 dates lexically (e.g. `Mon, 27 May 2024…`), so newest-first was wrong for many RSS sources; `007` parses dates before sorting
+
+### Notes
+
+- Apply migration `007` after `006` (`supabase db push` or SQL editor). `007` drops and replaces the text `sort_at` column from `006`
+- Existing rows sort correctly after `007` without re-ingest; new RSS ingests store cleaner ISO `published_at`
+
 ## [2.1.0] - 2026-06-29
 
 ### Added
@@ -31,7 +51,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 
-- Apply migration `006` before deploying the web app (`supabase db push` or SQL editor)
+- Apply migrations `006` then `007` before deploying the web app (`supabase db push` or SQL editor)
 - After editing `display_name` in `config.yaml`, run `python scripts/sync_web_vocab.py`
 
 ## [2.0.1] - 2026-06-28

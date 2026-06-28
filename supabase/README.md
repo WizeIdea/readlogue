@@ -12,6 +12,7 @@ Production index lives in Supabase Postgres. GitHub Actions hydrates a scratch S
    - [`migrations/004_hero_image_url.sql`](migrations/004_hero_image_url.sql)
    - [`migrations/005_item_curation.sql`](migrations/005_item_curation.sql) — apply after truncating `items` during QA
    - [`migrations/006_items_sort_at.sql`](migrations/006_items_sort_at.sql) — generated `sort_at` column for list ordering
+   - [`migrations/007_sort_at_timestamptz.sql`](migrations/007_sort_at_timestamptz.sql) — `sort_at` as `timestamptz` (fixes RSS date sort); adds `unread_rank`
 3. Add GitHub Actions secrets on the main repo:
    - `SUPABASE_URL` — project URL
    - `SUPABASE_SERVICE_ROLE_KEY` — **service role** key (never expose to frontend)

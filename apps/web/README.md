@@ -61,7 +61,7 @@ Add `display_name` on any source entry (falls back to `name` if omitted):
 
 Then run `python scripts/sync_web_vocab.py` to update `src/lib/sources.ts`.
 
-Sort order: unread first (`read_at` null), then newest article date within each group via `sort_at` (`coalesce(published_at, created_at)`).
+Sort order: unread first (`unread_rank`), then newest article date within each group via `sort_at` (`timestamptz`, parsed from `published_at` or `created_at`).
 
 ## Curation UI
 

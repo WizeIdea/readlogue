@@ -115,8 +115,8 @@ export async function listItemsPage(
   const offset = page * PAGE_SIZE;
 
   const { data, error, count } = await query
-    .order("read_at", { ascending: true, nullsFirst: true })
-    .order("sort_at", { ascending: false })
+    .order("unread_rank", { ascending: true })
+    .order("sort_at", { ascending: false, nullsFirst: false })
     .range(offset, offset + PAGE_SIZE - 1);
 
   if (error) {

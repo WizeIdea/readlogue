@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
@@ -10,6 +11,7 @@ from reader.scrapers import (
     _extract_hero_image_url,
     _extract_main_content,
     _extract_with_trafilatura,
+    _rss_published_iso,
     _strip_embed_markup,
     _handle_listing_source,
     build_url_ignore_checker,
@@ -1037,6 +1039,19 @@ class UrlIgnoreCheckerTests(unittest.TestCase):
     def test_non_ignored_url(self) -> None:
         checker = build_url_ignore_checker(ignored_url_substrings=("introducing-google-antigravity",))
         self.assertFalse(checker("https://example.com/article"))
+
+
+class RssPublishedIsoTests(unittest.TestCase):
+    def test_rss_published_iso_from_struct_time(self) -> None:
+        entry = {
+            "published": "Mon, 27 May 2024 12:00:00 +0000",
+            "published_parsed": time.struct_time((2024, 5, 27, 12, 0, 0, 0, 0, 0)),
+        }
+        self.assertEqual(_rss_published_iso(entry), "2024-05-27T12:00:00+00:00")
+
+    def test_rss_published_iso_from_rfc2822_string(self) -> None:
+        entry = {"published": "Mon, 27 May 2024 12:00:00 +0000"}
+        self.assertEqual(_rss_published_iso(entry), "2024-05-27T12:00:00+00:00")
 
 
 if __name__ == "__main__":
