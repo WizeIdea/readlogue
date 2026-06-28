@@ -735,6 +735,48 @@ class AuUniversityListingProfileTests(unittest.TestCase):
         )
 
 
+class AuGovListingHelpersTests(unittest.TestCase):
+    def test_resolve_listing_link_decodes_oaic_redirect(self) -> None:
+        from reader.scrapers import _resolve_listing_link
+
+        href = (
+            "/s/redirect?collection=x&url=https%3A%2F%2Fwww.oaic.gov.au%2Fnews%2Fblog%2Fsample-post"
+        )
+        resolved = _resolve_listing_link(
+            href,
+            "https://www.oaic.gov.au/news/blog?f.Topic%7Ctopic=Artificial+intelligence",
+        )
+        self.assertEqual(resolved, "https://www.oaic.gov.au/news/blog/sample-post")
+
+    def test_is_listing_hub_url_excludes_news_index(self) -> None:
+        from reader.scrapers import _is_listing_hub_url
+
+        self.assertTrue(_is_listing_hub_url("https://www.atse.org.au/news"))
+        self.assertFalse(_is_listing_hub_url("https://www.atse.org.au/news/budget-wrap"))
+
+    def test_oaic_listing_profile_resolves_redirect_links(self) -> None:
+        from reader.config import load_listing_profile
+        from reader.scrapers import parse_listing_articles
+
+        profile = load_listing_profile("config/sources/oaic-ai-blog.yaml")
+        html = """
+        <html><body>
+          <a href="/s/redirect?url=https%3A%2F%2Fwww.oaic.gov.au%2Fnews%2Fblog%2Fsample-post">Post</a>
+        </body></html>
+        """
+        articles = parse_listing_articles(
+            "https://www.oaic.gov.au/news/blog",
+            html=html,
+            fetcher=profile.fetcher,
+            item_selector=profile.item_selector,
+            link_selector=profile.link_selector,
+            allowed_url_prefixes=tuple(profile.allowed_url_prefixes),
+            max_links=profile.max_links,
+        )
+        self.assertEqual(len(articles), 1)
+        self.assertEqual(articles[0].url, "https://www.oaic.gov.au/news/blog/sample-post")
+
+
 class UrlIgnoreCheckerTests(unittest.TestCase):
     def test_exact_url_match_ignores_normalized_url(self) -> None:
         checker = build_url_ignore_checker(

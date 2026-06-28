@@ -9,22 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - IEEE Spectrum RSS sources: `ieee-spectrum-ai`, `ieee-spectrum-computing` (AI News), `ieee-spectrum` (News Digests) — topic/main feeds, not homepage scrape
-- Australian university sources (all `default_category: Education`):
-  - `unimelb-newsroom-eng-it`, `unimelb-newsroom-education` — filtered UniMelb newsroom **topic listing** pages (RSS feeds 403 on GHA)
-  - `rmit-news-technology` — listing scrape on `/news/technology`
-  - `anu-integrated-ai-news` — listing scrape on ANU Integrated AI `/news` (not `rss.xml`, which is events-only)
-  - `qut-genailab` — WordPress RSS at GenAI Lab
-- Listing profiles: [`config/sources/anu-integrated-ai-news.yaml`](config/sources/anu-integrated-ai-news.yaml), [`config/sources/rmit-news-technology.yaml`](config/sources/rmit-news-technology.yaml)
+- Australian university sources (Education): `unimelb-newsroom-*`, `rmit-news-technology`, `anu-integrated-ai-news`, `qut-genailab`
+- Australian government/policy listing sources (Governance and Policy): `ai-gov-blog`, `atse-news`, `dta-news-ai`, `oaic-ai-blog`, `industry-gov-news`
+- Listing profiles under [`config/sources/`](config/sources/) for the above; OAIC redirect link decoding in [`scrapers.py`](src/reader/scrapers.py)
 - RSS `settings.use_feed_content: true` — optional digest mode via `_record_from_rss_entry()` (stores validated RSS body without fetching the article URL)
 - Tests: `use_feed_content` handler, ANU/RMIT listing profile link discovery
 
 ### Changed
 - `the-batch` disabled — DeepLearning.ai returns 403 from GHA datacenter IPs; proxy RSS has teaser-only descriptions
 - `acm-technews` disabled — external article fetches are patchy and RSS digests (~80 words) are not suitable for full-text storage
+- UniMelb newsroom profile uses `fetcher: playwright` for articles (not requests-first) — GHA datacenter IPs always 403 on article pages; skips redundant retry round-trips
+- `unimelb-newsroom-eng-it` and `unimelb-newsroom-education` disabled pending stable GHA ingest cadence
 
 ### Fixed
 - UniMelb newsroom sources switched from RSS to topic **listing** scrape — `/newsroom/feed?queries_category_query=…` returns 403 from GHA; topic pages return static article links
-- UniMelb listing uses `listing_fetcher: playwright` with Cloudflare-tolerant browser context; HTTP 403 on `requests` auto-retries via Playwright (`playwright_wait_selector` on listing profiles)
+- UniMelb listing uses `listing_fetcher: playwright` with Cloudflare-tolerant browser context; HTTP 403 on `requests` auto-retries via Playwright for other sources (`playwright_wait_selector` on listing profiles)
 
 ### Notes
 - Apply Supabase migration [`005_item_curation.sql`](supabase/migrations/005_item_curation.sql) before sync if the `curation` column is missing

@@ -8,7 +8,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from urllib.parse import urljoin, urlsplit, urlunsplit
+from urllib.parse import parse_qs, unquote, urljoin, urlsplit, urlunsplit
 
 from reader.config import ContentCleanRules, ListingSourceProfile, load_content_clean_rules, load_listing_profile
 from reader.storage import ArticleRecord, IngestStats
@@ -729,6 +729,8 @@ def parse_listing_articles(
             continue
         if excluded_url_substrings and any(fragment in link for fragment in excluded_url_substrings):
             continue
+        if _is_listing_hub_url(link):
+            continue
         if link in seen:
             continue
         seen.add(link)
@@ -936,7 +938,24 @@ def _extract_href(element, listing_url: str, link_selector: str) -> str | None:
         href = link.get("href") if link else None
     if not href:
         return None
-    return _normalize_url(urljoin(listing_url, str(href)))
+    return _resolve_listing_link(str(href), listing_url)
+
+
+def _resolve_listing_link(href: str, listing_url: str) -> str:
+    """Normalize a listing href, decoding OAIC-style /s/redirect?url=… wrappers."""
+    absolute = urljoin(listing_url, href)
+    parts = urlsplit(absolute)
+    if "/s/redirect" in parts.path and parts.query:
+        redirect_target = parse_qs(parts.query).get("url", [None])[0]
+        if redirect_target:
+            return _normalize_url(unquote(redirect_target))
+    return _normalize_url(absolute)
+
+
+def _is_listing_hub_url(url: str) -> bool:
+    """True for news/blog index pages that share a prefix with article URLs."""
+    path = urlsplit(url).path.rstrip("/") or "/"
+    return path in ("/news", "/news-and-insights/blog")
 
 
 def _extract_rss_category(entry) -> str | None:
@@ -1172,12 +1191,14 @@ def _discover_listing_links_from_soup(
         if not href:
             continue
 
-        candidate = _normalize_url(urljoin(listing_url, str(href)))
+        candidate = _resolve_listing_link(str(href), listing_url)
         if not candidate or candidate in seen:
             continue
         if allowed_url_prefixes and not any(candidate.startswith(prefix) for prefix in allowed_url_prefixes):
             continue
         if excluded_url_substrings and any(fragment in candidate for fragment in excluded_url_substrings):
+            continue
+        if _is_listing_hub_url(candidate):
             continue
 
         seen.add(candidate)

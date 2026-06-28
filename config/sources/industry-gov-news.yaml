@@ -1,14 +1,13 @@
-fetcher: playwright
+fetcher: requests
 listing_fetcher: playwright
-playwright_wait_selector: 'a[href*="/newsroom/news/"]'
+playwright_wait_selector: 'a[href*="/news/"]'
 playwright_article_wait_selector: 'article, main'
-item_selector: a[href*="unimelb.edu.au/newsroom/news/"]
-link_selector: a[href*="unimelb.edu.au/newsroom/news/"]
+item_selector: a[href*="/news/"]
+link_selector: a[href*="/news/"]
 allowed_url_prefixes:
-  - https://www.unimelb.edu.au/newsroom/news/
+  - https://www.industry.gov.au/news/
 title_selectors:
   - h1
-  - strong
 date_selectors:
   - time[datetime]
   - time

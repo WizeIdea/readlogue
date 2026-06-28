@@ -1,0 +1,15 @@
+fetcher: requests
+item_selector: a[href*="/news-and-insights/blog/"]
+link_selector: a[href*="/news-and-insights/blog/"]
+allowed_url_prefixes:
+  - https://www.ai.gov.au/news-and-insights/blog/
+title_selectors:
+  - h1
+date_selectors:
+  - time[datetime]
+  - time
+content_selectors:
+  - article
+  - main
+paragraph_selector: article p, main p, p
+max_links: 25
