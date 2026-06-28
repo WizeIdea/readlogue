@@ -88,6 +88,34 @@ def load_categories(path: str | Path) -> list[str]:
     return [str(category) for category in categories]
 
 
+def load_article_types(path: str | Path) -> list[str]:
+    """Return article_types picklist from the main config file."""
+    config_path = Path(path)
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    return list(_load_string_list(raw, "article_types"))
+
+
+def load_article_domains(path: str | Path) -> list[str]:
+    """Return article_domains picklist from the main config file."""
+    config_path = Path(path)
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    return list(_load_string_list(raw, "article_domains"))
+
+
+def load_source_names(path: str | Path) -> list[str]:
+    """Return enabled source names from the main config file."""
+    config_path = Path(path)
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    source_entries = raw.get("sources") or raw.get("feeds") or []
+    names: list[str] = []
+    for feed in source_entries:
+        if not isinstance(feed, dict):
+            continue
+        if bool(feed.get("enabled", True)):
+            names.append(str(feed["name"]))
+    return names
+
+
 def load_config(path: str | Path) -> AppConfig:
     config_path = Path(path)
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}

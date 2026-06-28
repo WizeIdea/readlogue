@@ -27,3 +27,24 @@ export function isEmptyCuration(curation: CurationV1): boolean {
     curation.governance_relevance == null
   );
 }
+
+export type ScoreValue = 1 | 2 | 3 | 4 | 5;
+
+export const SCORE_EMOJI: readonly string[] = ["😞", "😕", "😐", "🙂", "😄"];
+
+export function toggleTag(
+  list: string[] | undefined,
+  tag: string,
+): string[] {
+  const current = list ?? [];
+  return current.includes(tag)
+    ? current.filter((t) => t !== tag)
+    : [...current, tag];
+}
+
+export function nextScore(
+  current: ScoreValue | null | undefined,
+  value: ScoreValue,
+): ScoreValue | null {
+  return current === value ? null : value;
+}

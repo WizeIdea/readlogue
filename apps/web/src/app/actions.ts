@@ -38,13 +38,6 @@ export async function setRead(itemId: number, read: boolean) {
   revalidatePath("/");
 }
 
-export async function setCategory(itemId: number, category: string | null) {
-  await requireUser();
-  const admin = createAdminClient();
-  await patchItem(admin, itemId, { category });
-  revalidatePath("/");
-}
-
 export async function setCuration(itemId: number, curation: CurationV1) {
   await requireUser();
   const admin = createAdminClient();

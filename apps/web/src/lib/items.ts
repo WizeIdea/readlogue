@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+import type { ItemFilters } from "@/lib/filters";
 import type { IngestionFailure, ItemRow } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/types";
 import { parseCuration, type CurationV1 } from "@/lib/curation";
@@ -42,15 +43,65 @@ function mapItem(row: ItemWithSource): ItemRow {
   };
 }
 
+function categoryFilterIsEmpty(filters: ItemFilters): boolean {
+  const categories = filters.categories ?? [];
+  const includeUncategorized = filters.includeUncategorized ?? false;
+  return categories.length === 0 && !includeUncategorized;
+}
+
 export async function listItemsPage(
   supabase: SupabaseClient,
   page: number,
+  filters?: ItemFilters,
 ): Promise<{ items: ItemRow[]; total: number }> {
+  if (filters?.categories !== undefined && categoryFilterIsEmpty(filters)) {
+    return { items: [], total: 0 };
+  }
+  if (filters?.sources !== undefined && filters.sources.length === 0) {
+    return { items: [], total: 0 };
+  }
+
+  let query = supabase
+    .from("items")
+    .select("*, sources(name)", { count: "exact" });
+
+  if (filters?.categories !== undefined || filters?.includeUncategorized) {
+    const categories = filters.categories ?? [];
+    const includeUncategorized = filters.includeUncategorized ?? false;
+
+    if (categories.length > 0 && includeUncategorized) {
+      const quoted = categories
+        .map((category) => `"${category.replace(/"/g, '\\"')}"`)
+        .join(",");
+      query = query.or(`category.in.(${quoted}),category.is.null`);
+    } else if (categories.length > 0) {
+      query = query.in("category", categories);
+    } else if (includeUncategorized) {
+      query = query.is("category", null);
+    }
+  }
+
+  if (filters?.sources !== undefined) {
+    const { data: sourceRows, error: sourceError } = await supabase
+      .from("sources")
+      .select("id")
+      .in("name", filters.sources);
+
+    if (sourceError) {
+      throw new Error(sourceError.message);
+    }
+
+    const sourceIds = (sourceRows ?? []).map((row) => row.id);
+    if (sourceIds.length === 0) {
+      return { items: [], total: 0 };
+    }
+
+    query = query.in("source_id", sourceIds);
+  }
+
   const offset = page * PAGE_SIZE;
 
-  const { data, error, count } = await supabase
-    .from("items")
-    .select("*, sources(name)", { count: "exact" })
+  const { data, error, count } = await query
     .order("read_at", { ascending: true, nullsFirst: true })
     .order("published_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })

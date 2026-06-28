@@ -58,7 +58,7 @@ Setup: [`supabase/README.md`](supabase/README.md)
 | File | Purpose |
 |------|---------|
 | `src/app/layout.tsx` | Root HTML shell |
-| `src/app/(main)/layout.tsx` | Header + main content wrapper |
+| `src/app/(main)/layout.tsx` | Sidebar + main content wrapper (no top header) |
 | `src/app/globals.css` | **All visual design** (light/dark tokens, article layout, buttons, forms) |
 | `src/middleware.ts` | Auth session refresh; redirect to `/login` |
 
@@ -66,11 +66,13 @@ Setup: [`supabase/README.md`](supabase/README.md)
 
 | File | Purpose |
 |------|---------|
-| `src/components/header.tsx` | App title, tagline, sign out |
+| `src/components/filter-sidebar.tsx` | Logo, category/source filter pills, sign out |
+| `src/components/header.tsx` | *(removed)* |
 | `src/components/login-form.tsx` | Email/password form (client) |
 | `src/components/article-list.tsx` | Renders list of `ArticleRow` |
-| `src/components/article-row.tsx` | Compact row: left sidebar (thumb, source meta, icon actions), right column (title, summary) |
-| `src/components/article-actions.tsx` | Thumbs up/down, mail read/unread icons, category select (sidebar stack) |
+| `src/components/article-row.tsx` | 3-column row: left (thumbs + scores), middle (meta, title/summary read-toggle, chips), right (hero) |
+| `src/components/article-curation.tsx` | `CurationScores` (T/B/G smileys) and `CurationChips` (article_types / article_domains) |
+| `src/components/article-actions.tsx` | Thumbs up/down only |
 | `src/components/pagination.tsx` | Previous, numbered pages, Next, article count |
 | `src/components/failure-banner.tsx` | Top-of-page ingestion failure alerts |
 | `src/components/failure-actions.tsx` | Ignore / Dismiss buttons per failure (client) |
@@ -92,13 +94,17 @@ Styled via `globals.css` class names (`.btn`, `.alert`, `.select-trigger`, etc.)
 |------|---------|
 | `src/lib/items.ts` | `listItemsPage`, `listIngestionFailures`, `patchItem`, `urlIgnoreSubstring` |
 | `src/lib/types.ts` | `ItemRow`, `IngestionFailure`, `PAGE_SIZE` |
-| `src/lib/categories.ts` | Category list (generated from `config.yaml` via `scripts/sync_categories.py`) |
+| `src/lib/categories.ts` | Category list (generated from `config.yaml` via `scripts/sync_web_vocab.py`) |
+| `src/lib/sources.ts` | Enabled source names (generated from `config.yaml`) |
+| `src/lib/filters.ts` | Filter URL helpers + `ItemFilters` type |
+| `src/lib/curation.ts` | `CurationV1` type, parse helpers, `toggleTag` / `nextScore` |
+| `src/lib/curation-picklists.ts` | `ARTICLE_TYPES` / `ARTICLE_DOMAINS` (generated from `config.yaml`) |
 | `src/lib/utils.ts` | `cn()` class name helper |
 | `src/lib/supabase/server.ts` | Server Supabase client (reads, session) |
 | `src/lib/supabase/client.ts` | Browser client (login only) |
 | `src/lib/supabase/admin.ts` | Service role client (writes, ignore API) |
 | `src/lib/supabase/middleware.ts` | Session update helper |
-| `src/app/actions.ts` | Server Actions: `setRating`, `setRead`, `setCategory`, `signOut` |
+| `src/app/actions.ts` | Server Actions: `setRating`, `setRead`, `setCuration`, `signOut` |
 
 ### Config / env
 

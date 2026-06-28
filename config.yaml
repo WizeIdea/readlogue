@@ -1,5 +1,5 @@
 # LIVE CONFIG — used by GitHub Actions ingest and local runs (not a template).
-# After editing categories below, run: python scripts/sync_categories.py
+# After editing categories, article_types, article_domains, or sources below, run: python scripts/sync_web_vocab.py
 database: data/reader.db
 
 # URLs skipped before fetch (no HTTP request, no validation). Substrings match anywhere in the normalized URL.

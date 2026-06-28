@@ -5,6 +5,7 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "ReadLogue",
   description: "Research corpus curation",
+  manifest: "/site.webmanifest",
 };
 
 export default function RootLayout({
