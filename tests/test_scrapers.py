@@ -1054,5 +1054,48 @@ class RssPublishedIsoTests(unittest.TestCase):
         self.assertEqual(_rss_published_iso(entry), "2024-05-27T12:00:00+00:00")
 
 
+class PublishedAtNormalizationTests(unittest.TestCase):
+    def test_normalize_rfc2822(self) -> None:
+        from reader.scrapers import _normalize_published_at
+
+        self.assertEqual(
+            _normalize_published_at("Thu, 25 Jun 2026 15:00:00 +0000"),
+            "2026-06-25T15:00:00+00:00",
+        )
+
+    def test_normalize_strips_microseconds(self) -> None:
+        from reader.scrapers import _normalize_published_at
+
+        self.assertEqual(
+            _normalize_published_at("2026-04-21T00:00:00.691000+00:00"),
+            "2026-04-21T00:00:00+00:00",
+        )
+
+    def test_extract_date_from_url_path(self) -> None:
+        from reader.scrapers import _extract_date_from_url_path
+
+        self.assertEqual(
+            _extract_date_from_url_path("https://bair.berkeley.edu/blog/2025/03/25/rl-av-smoothing/"),
+            "2025-03-25T00:00:00+00:00",
+        )
+
+    def test_extract_article_published_at_from_meta(self) -> None:
+        from unittest.mock import patch
+
+        from reader.scrapers import _extract_article_published_at, _load_beautifulsoup
+
+        html = """
+        <html><head>
+        <meta property="article:published_time" content="2025-03-25T08:00:00+00:00" />
+        </head><body><article><p>Body</p></article></body></html>
+        """
+        soup = _load_beautifulsoup()(html, "html.parser")
+        with patch("trafilatura.extract_metadata", return_value=None):
+            self.assertEqual(
+                _extract_article_published_at(html, "https://example.com/post", soup, None),
+                "2025-03-25T08:00:00+00:00",
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

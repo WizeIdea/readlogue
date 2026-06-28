@@ -155,7 +155,7 @@ def _record_from_rss_entry(
         title=title,
         summary=raw.summary or content,
         content=content,
-        published_at=raw.published_at,
+        published_at=_normalize_published_at(raw.published_at),
         source_scraper=source_config.scraper,
         source_category=raw.source_category,
         category=None,
@@ -284,7 +284,11 @@ def _handle_rss_source(
             existing_fingerprints.add(fingerprint)
         # Use RSS feed metadata as fallback
         object.__setattr__(record, "title", record.title or raw.title)
-        object.__setattr__(record, "published_at", record.published_at or raw.published_at)
+        object.__setattr__(
+            record,
+            "published_at",
+            _normalize_published_at(record.published_at or raw.published_at),
+        )
         object.__setattr__(record, "source_category", record.source_category or raw.source_category)
         object.__setattr__(record, "author", record.author or raw.author)
         if default_category:
@@ -572,7 +576,11 @@ def _fetch_article(
         return None
 
     # Save raw HTML to file when not already stored for this article
-    published_at = listing_article.published_at if listing_article else None
+    BeautifulSoup = _load_beautifulsoup()
+    soup = BeautifulSoup(raw_html, "html.parser")
+    listing_published_at = listing_article.published_at if listing_article else None
+    article_published_at = _extract_article_published_at(raw_html, article_url, soup, profile)
+    published_at = _normalize_published_at(article_published_at or listing_published_at)
     raw_html_path = resolve_raw_html_path(
         connection,
         article_url,
@@ -645,7 +653,7 @@ def parse_rss_feed(
                 title=entry.get("title", url),
                 summary=summary_markdown,
                 content=summary_markdown,
-                published_at=_rss_published_iso(entry),
+                published_at=_normalize_published_at(_rss_published_iso(entry)),
                 source_scraper="rss",
                 source_category=_extract_rss_category(entry),
                 author=entry.get("author"),
@@ -680,7 +688,7 @@ def parse_huggingface_tag_articles(tag: str, *, max_pages: int = 10) -> list[Lis
 
             seen_links.add(link)
             new_on_page += 1
-            published_at = _parse_iso_date(str(blog.get("publishedAt") or ""))
+            published_at = _normalize_published_at(_parse_iso_date(str(blog.get("publishedAt") or "")))
             tags = [
                 _clean_text(tag_value)
                 for tag_value in (blog.get("tags") or [])
@@ -1027,16 +1035,129 @@ def _parse_date_text(text: str, date_formats: tuple[str, ...]) -> str | None:
 
     iso_candidate = _parse_iso_date(cleaned)
     if iso_candidate:
-        return iso_candidate
+        return _normalize_published_at(iso_candidate)
 
     for date_format in date_formats:
         try:
             parsed = datetime.strptime(cleaned, date_format)
             if parsed.tzinfo is None:
                 parsed = parsed.replace(tzinfo=timezone.utc)
-            return parsed.isoformat()
+            return _normalize_published_at(parsed.isoformat())
         except ValueError:
             continue
+    return None
+
+
+def _parse_datetime_lenient(text: str) -> datetime | None:
+    cleaned = _clean_text(text)
+    if not cleaned:
+        return None
+
+    iso = _parse_iso_date(cleaned)
+    if iso:
+        with contextlib.suppress(ValueError):
+            return datetime.fromisoformat(iso.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+    with contextlib.suppress(ValueError, TypeError):
+        from email.utils import parsedate_to_datetime
+
+        return parsedate_to_datetime(cleaned).astimezone(timezone.utc)
+
+    for date_format in (
+        "%Y-%m-%d",
+        "%B %d, %Y",
+        "%b %d, %Y",
+        "%b %d %Y",
+        "%B %d %Y",
+        "%d/%m/%Y",
+    ):
+        with contextlib.suppress(ValueError):
+            parsed = datetime.strptime(cleaned, date_format)
+            return parsed.replace(tzinfo=timezone.utc)
+    return None
+
+
+def _normalize_published_at(text: str | None) -> str | None:
+    if text is None or not str(text).strip():
+        return None
+    parsed = _parse_datetime_lenient(str(text))
+    if parsed is None:
+        return None
+    parsed = parsed.astimezone(timezone.utc).replace(microsecond=0)
+    return parsed.isoformat()
+
+
+_URL_DATE_PATTERNS = (
+    re.compile(r"/(\d{4})/(\d{1,2})/(\d{1,2})(?:/|$)"),
+    re.compile(r"/(\d{4})-(\d{2})-(\d{2})(?:/|$|[-_])"),
+)
+
+
+def _extract_date_from_url_path(url: str) -> str | None:
+    path = urlsplit(url).path
+    for pattern in _URL_DATE_PATTERNS:
+        match = pattern.search(path)
+        if not match:
+            continue
+        year, month, day = (int(match.group(1)), int(match.group(2)), int(match.group(3)))
+        with contextlib.suppress(ValueError):
+            parsed = datetime(year, month, day, tzinfo=timezone.utc)
+            return _normalize_published_at(parsed.isoformat())
+    return None
+
+
+def _extract_article_published_at(
+    html: str,
+    url: str,
+    soup: BeautifulSoup,
+    profile: ListingSourceProfile | None = None,
+) -> str | None:
+    import logging
+
+    logger = logging.getLogger(__name__)
+
+    candidates: list[tuple[str, str]] = []
+
+    with contextlib.suppress(Exception):
+        import trafilatura
+
+        metadata = trafilatura.extract_metadata(html, default_url=url)
+        if metadata is not None and metadata.date:
+            candidates.append(("trafilatura", str(metadata.date)))
+
+    for selector, attribute in (
+        ('meta[property="article:published_time"]', "content"),
+        ('meta[property="og:article:published_time"]', "content"),
+        ('meta[name="date"]', "content"),
+        ('meta[name="pubdate"]', "content"),
+        ('meta[name="publish-date"]', "content"),
+        ('meta[itemprop="datePublished"]', "content"),
+    ):
+        element = soup.select_one(selector)
+        if element and element.get(attribute):
+            candidates.append(("meta", str(element[attribute])))
+
+    for element in soup.select("time[datetime]"):
+        if element.get("datetime"):
+            candidates.append(("time", str(element["datetime"])))
+
+    if profile is not None:
+        date_selectors = profile.article_date_selectors or profile.date_selectors
+        date_formats = profile.article_date_formats or profile.date_formats
+        if date_selectors:
+            profile_date = _extract_date_from_item(soup, date_selectors, date_formats)
+            if profile_date:
+                candidates.append(("profile", profile_date))
+
+    url_date = _extract_date_from_url_path(url)
+    if url_date:
+        candidates.append(("url", url_date))
+
+    for source, raw in candidates:
+        normalized = _normalize_published_at(raw)
+        if normalized:
+            logger.debug("Article date for %s from %s: %s", url, source, normalized)
+            return normalized
     return None
 
 
@@ -1053,18 +1174,20 @@ def _parse_iso_date(text: str) -> str | None:
 def _rss_published_iso(entry) -> str | None:
     published_parsed = entry.get("published_parsed") or entry.get("updated_parsed")
     if published_parsed:
-        return datetime(*published_parsed[:6], tzinfo=timezone.utc).isoformat()
+        return _normalize_published_at(
+            datetime(*published_parsed[:6], tzinfo=timezone.utc).isoformat()
+        )
     raw = entry.get("published") or entry.get("updated")
     if not raw:
         return None
     cleaned = str(raw).strip()
     iso = _parse_iso_date(cleaned)
     if iso:
-        return iso
+        return _normalize_published_at(iso)
     with contextlib.suppress(ValueError, TypeError):
         from email.utils import parsedate_to_datetime
 
-        return parsedate_to_datetime(cleaned).astimezone(timezone.utc).isoformat()
+        return _normalize_published_at(parsedate_to_datetime(cleaned).astimezone(timezone.utc).isoformat())
     return None
 
 

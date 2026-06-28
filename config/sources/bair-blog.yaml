@@ -1,11 +1,13 @@
 fetcher: requests
-item_selector: article, main article, main section, a[href*="/blog/"]
+item_selector: article, main article, main section
 link_selector: a[href*="/blog/"]
 allowed_url_prefixes:
   - https://bair.berkeley.edu/blog/
 excluded_url_substrings:
   - /blog/page/
+  - /blog/archive
   - /blog/archive/
+  - /blog/about
   - /blog/subscribe
   - /blog/subscribe/
 title_selectors:

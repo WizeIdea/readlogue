@@ -18,9 +18,11 @@ type Props = {
   item: ItemRow;
 };
 
-function formatArticleDate(item: ItemRow): string {
-  const raw = item.published_at ?? item.created_at;
-  return new Date(raw).toLocaleDateString("en-AU", {
+function formatArticleDate(item: ItemRow): string | null {
+  if (!item.published_at) {
+    return null;
+  }
+  return new Date(item.published_at).toLocaleDateString("en-AU", {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -32,7 +34,10 @@ function formatMeta(item: ItemRow): string {
   if (item.source_category) {
     parts.push(item.source_category);
   }
-  parts.push(formatArticleDate(item));
+  const articleDate = formatArticleDate(item);
+  if (articleDate) {
+    parts.push(articleDate);
+  }
   return parts.join(" · ");
 }
 

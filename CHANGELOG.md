@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2] - 2026-06-29
+
+### Added
+
+- [`_extract_article_published_at()`](src/reader/scrapers.py) — article-page date from trafilatura, meta tags, `time[datetime]`, URL path, and optional per-source YAML (`article_date_selectors`)
+- [`_normalize_published_at()`](src/reader/scrapers.py) — canonical ISO UTC storage (RFC 2822, microseconds stripped)
+- [`scripts/audit_item_dates.py`](scripts/audit_item_dates.py) — `inventory` (offline full-table scan) and `verify` (live re-fetch every URL)
+
+### Changed
+
+- `_fetch_article` prefers article-page date over listing/RSS fallback; RSS merge normalizes stored values
+- Article meta line shows **`published_at` only** (no `created_at` fallback) in [`article-row.tsx`](apps/web/src/components/article-row.tsx)
+- [`bair-blog.yaml`](config/sources/bair-blog.yaml) — listing `item_selector` no longer matches bare blog links (date lives in parent card)
+
+### Notes
+
+- After deploy: truncate `items`, full re-ingest, run `python scripts/audit_item_dates.py --database … inventory` to confirm zero NULL/RFC2822 rows
+- Apply Supabase migration `007` before relying on dashboard sort
+
 ## [2.1.1] - 2026-06-29
 
 ### Added

@@ -42,6 +42,8 @@ class ListingSourceProfile:
     title_selectors: tuple[str, ...] = ()
     date_selectors: tuple[str, ...] = ()
     date_formats: tuple[str, ...] = ()
+    article_date_selectors: tuple[str, ...] = ()
+    article_date_formats: tuple[str, ...] = ()
     category_selectors: tuple[str, ...] = ()
     content_selectors: tuple[str, ...] = ()
     content_root_selector: str | None = None
@@ -188,6 +190,8 @@ def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:
         title_selectors=tuple(str(value) for value in raw.get("title_selectors", [])),
         date_selectors=tuple(str(value) for value in raw.get("date_selectors", [])),
         date_formats=tuple(str(value) for value in raw.get("date_formats", [])),
+        article_date_selectors=tuple(str(value) for value in raw.get("article_date_selectors", [])),
+        article_date_formats=tuple(str(value) for value in raw.get("article_date_formats", [])),
         category_selectors=tuple(str(value) for value in raw.get("category_selectors", [])),
         content_selectors=tuple(str(value) for value in raw.get("content_selectors", [])),
         content_root_selector=(
