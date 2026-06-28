@@ -1,6 +1,10 @@
 fetcher: requests
-item_selector: a[href*="ai.meta.com/blog/"]
+item_selector: 'div[class*="_8xiz"], div[class*="metaAIFeaturedBlogHero"]'
 link_selector: a[href*="ai.meta.com/blog/"]
+title_selectors:
+  - h4
+  - h3
+  - h2
 allowed_url_prefixes:
   - https://ai.meta.com/blog/
 title_selectors:

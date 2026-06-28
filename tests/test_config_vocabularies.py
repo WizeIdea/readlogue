@@ -15,15 +15,7 @@ class ConfigVocabularyTests(unittest.TestCase):
         self.assertIn("research", config.article_types)
         self.assertIn("LLMs", config.article_domains)
 
-    def test_gha_batch_enables_only_four_vendor_sources(self) -> None:
+    def test_gha_batch_enables_only_meta_ai_blog(self) -> None:
         config = load_config(CONFIG_PATH)
         enabled = {source.name for source in config.sources if source.enabled}
-        self.assertEqual(
-            enabled,
-            {
-                "thinking-machines-blog",
-                "google-developers-blog-ai",
-                "meta-ai-blog",
-                "groq-blog",
-            },
-        )
+        self.assertEqual(enabled, {"meta-ai-blog"})

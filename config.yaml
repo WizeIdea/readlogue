@@ -41,7 +41,7 @@ article_domains:
   - policy
 
 sources:
-  # --- GHA test batch: thinking-machines, google-dev-ai, meta-ai, groq ---
+  # --- GHA test batch: meta-ai-blog only (summary fix validation) ---
   - name: csail-news
     kind: listing
     url: https://www.csail.mit.edu/news/
@@ -390,6 +390,7 @@ sources:
     kind: rss
     url: https://thinkingmachines.ai/blog/index.xml
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: AI News
@@ -398,6 +399,7 @@ sources:
     kind: listing
     url: https://developers.googleblog.com/search/?technology_categories=AI
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/google-developers-blog-ai.yaml
     settings:
       default_category: AI News
@@ -406,6 +408,7 @@ sources:
     kind: listing
     url: https://ai.meta.com/blog/
     scraper: beautifulsoup
+    enabled: true
     config: config/sources/meta-ai-blog.yaml
     settings:
       default_category: AI News
@@ -414,6 +417,7 @@ sources:
     kind: listing
     url: https://groq.com/blog
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/groq-blog.yaml
     settings:
       default_category: Vendor News

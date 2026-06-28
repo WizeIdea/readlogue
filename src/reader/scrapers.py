@@ -588,7 +588,7 @@ def _fetch_article(
         source_url=source_url,
         url=article_url,
         title=title,
-        summary=listing_summary or summary,
+        summary=summary or listing_summary,
         content=content,
         published_at=published_at,
         source_scraper=source_scraper,

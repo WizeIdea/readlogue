@@ -920,7 +920,10 @@ class VendorBlogListingProfileTests(unittest.TestCase):
         html = """
         <html><body>
           <a href="https://ai.meta.com/blog/">Blog index</a>
-          <a href="https://ai.meta.com/blog/sample-research-post/">Sample research post</a>
+          <div class="_8xiz">
+            <h4>Sample research post</h4>
+            <a href="https://ai.meta.com/blog/sample-research-post/">Learn More</a>
+          </div>
         </body></html>
         """
         articles = parse_listing_articles(
@@ -934,6 +937,57 @@ class VendorBlogListingProfileTests(unittest.TestCase):
         )
         self.assertEqual(len(articles), 1)
         self.assertEqual(articles[0].url, "https://ai.meta.com/blog/sample-research-post")
+        self.assertEqual(articles[0].title, "Sample research post")
+
+    def test_fetch_article_prefers_extracted_summary_over_listing_teaser(self) -> None:
+        from unittest.mock import patch
+
+        from reader.config import load_listing_profile
+        from reader.scrapers import ListingArticle, _fetch_article
+        from reader.storage import connect, initialize
+
+        profile = load_listing_profile("config/sources/meta-ai-blog.yaml")
+        listing = ListingArticle(
+            url="https://ai.meta.com/blog/introducing-muse-spark-msl",
+            title="FEATURED",
+            summary="FEATURED",
+            published_at=None,
+            source_category=None,
+        )
+        extracted_summary = (
+            "Introducing Muse Spark: Scaling Towards Personal Superintelligence. "
+            "Today we are sharing more about Muse Spark and how it fits into our roadmap."
+        )
+        long_content = extracted_summary + " " + ("word " * 60)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "reader.db"
+            initialize(db_path)
+            with connect(db_path) as connection, patch(
+                "reader.scrapers.extract_article",
+                return_value=(
+                    "Introducing Muse Spark",
+                    extracted_summary,
+                    long_content,
+                    None,
+                    "<html></html>",
+                    None,
+                ),
+            ), patch("reader.storage.resolve_raw_html_path", return_value="raw.html"):
+                record = _fetch_article(
+                    connection,
+                    listing.url,
+                    "meta-ai-blog",
+                    "https://ai.meta.com/blog/",
+                    listing,
+                    profile,
+                    raw_html_dir=temp_dir,
+                )
+
+        self.assertIsNotNone(record)
+        assert record is not None
+        self.assertEqual(record.summary, extracted_summary)
+        self.assertNotIn("FEATURED", record.summary)
 
     def test_groq_listing_profile_discovers_blog_links(self) -> None:
         from reader.config import load_listing_profile
