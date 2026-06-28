@@ -42,10 +42,24 @@ This regenerates `src/lib/categories.ts`, `src/lib/curation-picklists.ts`, and `
 
 ## Filter sidebar
 
+- **Read status** — Unread / Read pills (both active by default; deselect Read to show unread only)
 - **Categories** — from `categories.ts` plus an **Uncategorized** pill (`items.category IS NULL`)
-- **Sources** — enabled names from `sources.ts`
+- **Sources** — enabled names from `sources.ts`; labels use optional `display_name` from `config.yaml`
 - All pills **active by default** (no URL params). Click to exclude; **Select all** / **Clear all** per section.
-- URL params: `categories`, `sources` (comma-separated included values), `page`
+- URL params: `read`, `categories`, `sources` (comma-separated included values), `page`
+
+### Source display names in config.yaml
+
+Add `display_name` on any source entry (falls back to `name` if omitted):
+
+```yaml
+  - name: csail-news
+    display_name: CSAIL News
+    kind: listing
+    ...
+```
+
+Then run `python scripts/sync_web_vocab.py` to update `src/lib/sources.ts`.
 
 Sort order is unchanged: unread first, then newest `published_at`, then `created_at`.
 

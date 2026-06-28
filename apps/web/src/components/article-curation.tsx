@@ -21,17 +21,17 @@ type Props = {
 const SCORE_ROWS = [
   {
     field: "technical_depth" as const,
-    label: "T",
+    label: "Technical",
     aria: "Technical depth",
   },
   {
     field: "business_relevance" as const,
-    label: "B",
+    label: "Business",
     aria: "Business relevance",
   },
   {
     field: "governance_relevance" as const,
-    label: "G",
+    label: "Governance",
     aria: "Governance relevance",
   },
 ];
@@ -91,42 +91,46 @@ export function CurationChips({ item }: Props) {
 
   return (
     <div className="curation-chips">
-      {ARTICLE_TYPES.map((tag) => {
-        const active = types.includes(tag);
-        return (
-          <button
-            key={`type-${tag}`}
-            type="button"
-            className={`curation-chip curation-chip--type${active ? " curation-chip--active" : ""}`}
-            aria-pressed={active}
-            onClick={() =>
-              void patchCuration(item, {
-                article_types: toggleTag(types, tag),
-              })
-            }
-          >
-            {tag}
-          </button>
-        );
-      })}
-      {ARTICLE_DOMAINS.map((tag) => {
-        const active = domains.includes(tag);
-        return (
-          <button
-            key={`domain-${tag}`}
-            type="button"
-            className={`curation-chip curation-chip--domain${active ? " curation-chip--active" : ""}`}
-            aria-pressed={active}
-            onClick={() =>
-              void patchCuration(item, {
-                article_domains: toggleTag(domains, tag),
-              })
-            }
-          >
-            {tag}
-          </button>
-        );
-      })}
+      <div className="curation-chip-group">
+        {ARTICLE_TYPES.map((tag) => {
+          const active = types.includes(tag);
+          return (
+            <button
+              key={`type-${tag}`}
+              type="button"
+              className={`curation-chip curation-chip--type${active ? " curation-chip--active" : ""}`}
+              aria-pressed={active}
+              onClick={() =>
+                void patchCuration(item, {
+                  article_types: toggleTag(types, tag),
+                })
+              }
+            >
+              {tag}
+            </button>
+          );
+        })}
+      </div>
+      <div className="curation-chip-group">
+        {ARTICLE_DOMAINS.map((tag) => {
+          const active = domains.includes(tag);
+          return (
+            <button
+              key={`domain-${tag}`}
+              type="button"
+              className={`curation-chip curation-chip--domain${active ? " curation-chip--active" : ""}`}
+              aria-pressed={active}
+              onClick={() =>
+                void patchCuration(item, {
+                  article_domains: toggleTag(domains, tag),
+                })
+              }
+            >
+              {tag}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

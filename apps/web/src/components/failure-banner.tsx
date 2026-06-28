@@ -1,5 +1,6 @@
 import { FailureActions } from "@/components/failure-actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { sourceDisplayNameLoose } from "@/lib/sources";
 import type { IngestionFailure } from "@/lib/types";
 
 type Props = {
@@ -17,19 +18,22 @@ export function FailureBanner({ failures }: Props) {
       <AlertDescription>
         These URLs failed validation and were not saved to the index.
       </AlertDescription>
-      <div>
+      <div className="failure-grid">
         {failures.map((failure) => (
-          <div key={failure.id} className="failure-item">
-            <p>
-              <strong>{failure.source_name}</strong>
-              {" · "}
-              <a href={failure.article_url} target="_blank" rel="noopener noreferrer">
-                {failure.article_url}
+          <div key={failure.id} className="failure-card">
+            <h3 className="failure-card-title">
+              <a
+                href={failure.article_url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {sourceDisplayNameLoose(failure.source_name)}
               </a>
-            </p>
-            <p>
+            </h3>
+            <p className="failure-card-message">
               {failure.failure_count}{" "}
-              {failure.failure_count === 1 ? "attempt" : "attempts"} — {failure.message}
+              {failure.failure_count === 1 ? "attempt" : "attempts"} —{" "}
+              {failure.message}
             </p>
             <FailureActions
               articleUrl={failure.article_url}

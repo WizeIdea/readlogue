@@ -3,6 +3,7 @@
 import type { KeyboardEvent } from "react";
 
 import { setRead } from "@/app/actions";
+import { sourceDisplayNameLoose } from "@/lib/sources";
 import type { ItemRow } from "@/lib/types";
 
 import { ArticleActions } from "./article-actions";
@@ -12,11 +13,22 @@ type Props = {
   item: ItemRow;
 };
 
+function formatArticleDate(item: ItemRow): string {
+  const raw = item.published_at ?? item.created_at;
+  return new Date(raw).toLocaleDateString("en-AU", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 function formatMeta(item: ItemRow): string {
+  const parts = [sourceDisplayNameLoose(item.source_name)];
   if (item.source_category) {
-    return `${item.source_name} · ${item.source_category}`;
+    parts.push(item.source_category);
   }
-  return item.source_name;
+  parts.push(formatArticleDate(item));
+  return parts.join(" · ");
 }
 
 export function ArticleRow({ item }: Props) {

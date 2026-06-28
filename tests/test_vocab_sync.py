@@ -9,6 +9,7 @@ from reader.config import (
     load_article_types,
     load_categories,
     load_source_names,
+    load_web_sources,
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -44,4 +45,19 @@ class VocabSyncTests(unittest.TestCase):
     def test_sources_ts_matches_config_yaml(self) -> None:
         expected = load_source_names(CONFIG_PATH)
         actual = _parse_ts_string_array(SOURCES_TS, "SOURCES")
+        self.assertEqual(actual, expected)
+
+    def test_source_display_names_match_config_yaml(self) -> None:
+        expected = {
+            source.name: source.display_name for source in load_web_sources(CONFIG_PATH)
+        }
+        text = SOURCES_TS.read_text(encoding="utf-8")
+        match = re.search(
+            r"export const SOURCE_DISPLAY_NAMES: Record<SourceName, string> = \{(.*?)\};",
+            text,
+            re.S,
+        )
+        self.assertIsNotNone(match, "SOURCE_DISPLAY_NAMES block missing")
+        block = match.group(1)
+        actual = dict(re.findall(r'"((?:\\.|[^"\\])*)":\s*"((?:\\.|[^"\\])*)"', block))
         self.assertEqual(actual, expected)

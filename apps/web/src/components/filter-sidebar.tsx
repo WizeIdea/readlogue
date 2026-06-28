@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import {
   buildFilterQuery,
   CATEGORY_FILTERS,
+  READ_FILTERS,
   selectedFromParam,
+  type ReadFilter,
 } from "@/lib/filters";
-import { SOURCES } from "@/lib/sources";
+import { SOURCES, sourceDisplayName } from "@/lib/sources";
 
 function toggleValue<T extends string>(selected: T[], value: T): T[] {
   return selected.includes(value)
@@ -26,15 +28,21 @@ export function FilterSidebar() {
 
   const categoriesParam = searchParams.get("categories") ?? undefined;
   const sourcesParam = searchParams.get("sources") ?? undefined;
+  const readParam = searchParams.get("read") ?? undefined;
 
   const selectedCategories = selectedFromParam(
     categoriesParam,
     CATEGORY_FILTERS,
   );
   const selectedSources = selectedFromParam(sourcesParam, SOURCES);
+  const selectedRead = selectedFromParam(readParam, READ_FILTERS);
 
-  function navigate(categories: string[], sources: string[]) {
-    const query = buildFilterQuery({ page: 0, categories, sources });
+  function navigate(
+    categories: string[],
+    sources: string[],
+    read: ReadFilter[],
+  ) {
+    const query = buildFilterQuery({ page: 0, categories, sources, read });
     const href = query ? `${pathname}?${query}` : pathname;
     router.push(href);
   }
@@ -43,6 +51,7 @@ export function FilterSidebar() {
     navigate(
       toggleValue(selectedCategories, category),
       selectedSources,
+      selectedRead,
     );
   }
 
@@ -50,28 +59,61 @@ export function FilterSidebar() {
     navigate(
       selectedCategories,
       toggleValue(selectedSources, source),
+      selectedRead,
+    );
+  }
+
+  function toggleRead(value: ReadFilter) {
+    navigate(
+      selectedCategories,
+      selectedSources,
+      toggleValue(selectedRead, value),
     );
   }
 
   return (
     <aside className="filter-sidebar" aria-label="Filters">
       <div className="filter-sidebar-brand">
-        <Link href="/">
+        <Link href="/" className="filter-sidebar-brand-link">
           <Image
-            src="/readlogue.png"
-            alt="ReadLogue"
-            width={160}
-            height={40}
+            src="/readlogue.svg"
+            alt=""
+            width={36}
+            height={36}
             className="filter-sidebar-logo"
             priority
           />
+          <span className="filter-sidebar-title">ReadLogue</span>
         </Link>
       </div>
 
       <FilterSection
+        title="Read status"
+        onSelectAll={() =>
+          navigate(selectedCategories, selectedSources, [...READ_FILTERS])
+        }
+        onClearAll={() =>
+          navigate(selectedCategories, selectedSources, [])
+        }
+      >
+        <FilterPill
+          label="Unread"
+          active={selectedRead.includes("unread")}
+          onClick={() => toggleRead("unread")}
+        />
+        <FilterPill
+          label="Read"
+          active={selectedRead.includes("read")}
+          onClick={() => toggleRead("read")}
+        />
+      </FilterSection>
+
+      <FilterSection
         title="Categories"
-        onSelectAll={() => navigate([...CATEGORY_FILTERS], selectedSources)}
-        onClearAll={() => navigate([], selectedSources)}
+        onSelectAll={() =>
+          navigate([...CATEGORY_FILTERS], selectedSources, selectedRead)
+        }
+        onClearAll={() => navigate([], selectedSources, selectedRead)}
       >
         {CATEGORY_FILTERS.map((category) => (
           <FilterPill
@@ -85,13 +127,15 @@ export function FilterSidebar() {
 
       <FilterSection
         title="Sources"
-        onSelectAll={() => navigate(selectedCategories, [...SOURCES])}
-        onClearAll={() => navigate(selectedCategories, [])}
+        onSelectAll={() =>
+          navigate(selectedCategories, [...SOURCES], selectedRead)
+        }
+        onClearAll={() => navigate(selectedCategories, [], selectedRead)}
       >
         {SOURCES.map((source) => (
           <FilterPill
             key={source}
-            label={source}
+            label={sourceDisplayName(source)}
             active={selectedSources.includes(source)}
             onClick={() => toggleSource(source)}
           />

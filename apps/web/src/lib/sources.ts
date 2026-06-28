@@ -42,3 +42,51 @@ export const SOURCES = [
 ] as const;
 
 export type SourceName = (typeof SOURCES)[number];
+
+export const SOURCE_DISPLAY_NAMES: Record<SourceName, string> = {
+  "csail-news": "MIT CSAIL",
+  "oecd-ai-wonk": "The AI Wonk",
+  "partnership-on-ai-blog": "Partnership on AI",
+  "ainow-publications": "AI Now institute",
+  "eu-digital-strategy-news": "EU Digital Strategy",
+  "aisi-blog": "AISI Blog",
+  "ieee-spectrum-ai": "IEEE Spectrum AI",
+  "ieee-spectrum-computing": "IEEE Spectrum Computing",
+  "ieee-spectrum": "IEEE Spectrum",
+  "atse-news": "ATSE",
+  "oaic-ai-blog": "OAIC (AU)",
+  "rmit-news-technology": "RMIT Technology",
+  "anu-integrated-ai-news": "ANU AI",
+  "qut-genailab": "QUT GenAI Lab",
+  "anthropic-engineering": "Anthropic Engineering Blog",
+  "anthropic-frontier-red-team": "Anthropic Frontier Red Team",
+  "allenai-news": "Allen AI",
+  "mistral-news": "Minstral",
+  "tldr-ai": "TLDR AI",
+  "huggingface-blog": "HuggingFace",
+  "microsoft-research-blog": "Microsoft Research",
+  "openai-engineering": "OpenAI Engineering",
+  "openai-news": "OpenAI News",
+  "importai": "Import AI",
+  "nist-news": "NIST",
+  "nist-it-news": "NIST Technology",
+  "huggingface-ethics": "HuggingFace Ethics",
+  "huggingface-research": "HuggingFace Research",
+  "deepmind-google-blog": "Google Deepmind",
+  "thinking-machines-blog": "Thinking Machines",
+  "google-developers-blog-ai": "Google Developers",
+  "meta-ai-blog": "Meta AI",
+  "groq-blog": "Groq",
+  "anthropic-research": "Anthropic Research",
+  "anthropic-news": "Anthropic News",
+  "stanford-hai-news": "Stanford HAI",
+  "bair-blog": "Berkley BAIR",
+};
+
+export function sourceDisplayName(name: SourceName): string {
+  return SOURCE_DISPLAY_NAMES[name];
+}
+
+export function sourceDisplayNameLoose(name: string): string {
+  return (SOURCE_DISPLAY_NAMES as Record<string, string>)[name] ?? name;
+}

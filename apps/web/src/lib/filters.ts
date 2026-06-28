@@ -3,16 +3,28 @@ import { SOURCES } from "@/lib/sources";
 
 export const CATEGORY_FILTERS = [...CATEGORIES, UNCATEGORIZED] as const;
 
+export const READ_FILTERS = ["read", "unread"] as const;
+
+export type ReadFilter = (typeof READ_FILTERS)[number];
+
 export type ItemFilters = {
   categories?: string[];
   includeUncategorized?: boolean;
   sources?: string[];
+  read?: ReadFilter[];
 };
 
 export type FilterSearchParams = {
   page?: string;
   categories?: string;
   sources?: string;
+  read?: string;
+};
+
+export type FilterSelection = {
+  categories: string[];
+  sources: string[];
+  read: ReadFilter[];
 };
 
 export function firstSearchParam(
@@ -55,8 +67,9 @@ export function parseItemFilters(
 ): ItemFilters | undefined {
   const hasCategoryFilter = params.categories !== undefined;
   const hasSourceFilter = params.sources !== undefined;
+  const hasReadFilter = params.read !== undefined;
 
-  if (!hasCategoryFilter && !hasSourceFilter) {
+  if (!hasCategoryFilter && !hasSourceFilter && !hasReadFilter) {
     return undefined;
   }
 
@@ -72,6 +85,10 @@ export function parseItemFilters(
     filters.sources = selectedFromParam(params.sources, SOURCES);
   }
 
+  if (hasReadFilter) {
+    filters.read = selectedFromParam(params.read, READ_FILTERS);
+  }
+
   return filters;
 }
 
@@ -85,13 +102,15 @@ export function isFiltersEmpty(filters: ItemFilters | undefined): boolean {
     !filters.includeUncategorized;
   const noSources =
     filters.sources !== undefined && filters.sources.length === 0;
-  return noCategories || noSources;
+  const noRead = filters.read !== undefined && filters.read.length === 0;
+  return noCategories || noSources || noRead;
 }
 
 export function buildFilterQuery(options: {
   page?: number;
   categories?: string[];
   sources?: string[];
+  read?: ReadFilter[];
 }): string {
   const parts: string[] = [];
 
@@ -101,6 +120,7 @@ export function buildFilterQuery(options: {
 
   const allCategories = [...CATEGORY_FILTERS];
   const allSources = [...SOURCES];
+  const allRead = [...READ_FILTERS];
 
   if (
     options.categories !== undefined &&
@@ -118,14 +138,22 @@ export function buildFilterQuery(options: {
     parts.push(`sources=${encodeURIComponent(options.sources.join(","))}`);
   }
 
+  if (options.read !== undefined && options.read.length < allRead.length) {
+    parts.push(`read=${encodeURIComponent(options.read.join(","))}`);
+  }
+
   return parts.join("&");
 }
 
 export function hrefWithFilters(
   page: number,
-  categories: string[],
-  sources: string[],
+  selection: FilterSelection,
 ): string {
-  const query = buildFilterQuery({ page, categories, sources });
+  const query = buildFilterQuery({
+    page,
+    categories: selection.categories,
+    sources: selection.sources,
+    read: selection.read,
+  });
   return query ? `/?${query}` : page === 0 ? "/" : `/?page=${page}`;
 }

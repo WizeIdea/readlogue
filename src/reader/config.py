@@ -102,18 +102,34 @@ def load_article_domains(path: str | Path) -> list[str]:
     return list(_load_string_list(raw, "article_domains"))
 
 
-def load_source_names(path: str | Path) -> list[str]:
-    """Return enabled source names from the main config file."""
+@dataclass(frozen=True)
+class WebSourceEntry:
+    name: str
+    display_name: str
+
+
+def load_web_sources(path: str | Path) -> list[WebSourceEntry]:
+    """Return enabled sources (name + display_name) for the web UI."""
     config_path = Path(path)
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     source_entries = raw.get("sources") or raw.get("feeds") or []
-    names: list[str] = []
+    entries: list[WebSourceEntry] = []
     for feed in source_entries:
         if not isinstance(feed, dict):
             continue
-        if bool(feed.get("enabled", True)):
-            names.append(str(feed["name"]))
-    return names
+        if not bool(feed.get("enabled", True)):
+            continue
+        name = str(feed["name"])
+        display_name = str(
+            feed.get("display_name") or feed.get("displayname") or name
+        )
+        entries.append(WebSourceEntry(name=name, display_name=display_name))
+    return entries
+
+
+def load_source_names(path: str | Path) -> list[str]:
+    """Return enabled source names from the main config file."""
+    return [source.name for source in load_web_sources(path)]
 
 
 def load_config(path: str | Path) -> AppConfig:

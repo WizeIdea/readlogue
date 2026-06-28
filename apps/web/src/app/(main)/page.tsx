@@ -6,6 +6,7 @@ import {
   firstSearchParam,
   isFiltersEmpty,
   parseItemFilters,
+  READ_FILTERS,
   selectedFromParam,
 } from "@/lib/filters";
 import { listIngestionFailures, listItemsPage } from "@/lib/items";
@@ -24,16 +25,17 @@ export default async function HomePage({ searchParams }: Props) {
     page: firstSearchParam(raw.page),
     categories: firstSearchParam(raw.categories),
     sources: firstSearchParam(raw.sources),
+    read: firstSearchParam(raw.read),
   };
   const filters = parseItemFilters(params);
   const filtered = filters !== undefined;
   const emptyFilters = isFiltersEmpty(filters);
 
-  const selectedCategories = selectedFromParam(
-    params.categories,
-    CATEGORY_FILTERS,
-  );
-  const selectedSources = selectedFromParam(params.sources, SOURCES);
+  const selection = {
+    categories: selectedFromParam(params.categories, CATEGORY_FILTERS),
+    sources: selectedFromParam(params.sources, SOURCES),
+    read: selectedFromParam(params.read, READ_FILTERS),
+  };
 
   const supabase = await createClient();
 
@@ -55,8 +57,7 @@ export default async function HomePage({ searchParams }: Props) {
           page={page}
           totalPages={totalPages}
           total={total}
-          categories={selectedCategories}
-          sources={selectedSources}
+          selection={selection}
         />
       )}
     </>

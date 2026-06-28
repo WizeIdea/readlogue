@@ -60,6 +60,9 @@ export async function listItemsPage(
   if (filters?.sources !== undefined && filters.sources.length === 0) {
     return { items: [], total: 0 };
   }
+  if (filters?.read !== undefined && filters.read.length === 0) {
+    return { items: [], total: 0 };
+  }
 
   let query = supabase
     .from("items")
@@ -97,6 +100,16 @@ export async function listItemsPage(
     }
 
     query = query.in("source_id", sourceIds);
+  }
+
+  if (filters?.read !== undefined) {
+    const includeUnread = filters.read.includes("unread");
+    const includeRead = filters.read.includes("read");
+    if (includeUnread && !includeRead) {
+      query = query.is("read_at", null);
+    } else if (includeRead && !includeUnread) {
+      query = query.not("read_at", "is", null);
+    }
   }
 
   const offset = page * PAGE_SIZE;

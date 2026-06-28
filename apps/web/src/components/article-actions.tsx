@@ -29,7 +29,7 @@ export function ArticleActions({ item }: Props) {
         aria-pressed={item.rating === "like"}
         onClick={() => void setRating(item.id, nextRating(item.rating, "like"))}
       >
-        <ThumbsUp size={16} aria-hidden />
+        <ThumbsUp size={20} aria-hidden />
       </Button>
       <Button
         type="button"
@@ -42,7 +42,7 @@ export function ArticleActions({ item }: Props) {
           void setRating(item.id, nextRating(item.rating, "dislike"))
         }
       >
-        <ThumbsDown size={16} aria-hidden />
+        <ThumbsDown size={20} aria-hidden />
       </Button>
     </div>
   );

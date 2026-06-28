@@ -1,23 +1,21 @@
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
-import { hrefWithFilters } from "@/lib/filters";
+import {
+  CATEGORY_FILTERS,
+  hrefWithFilters,
+  READ_FILTERS,
+  type FilterSelection,
+} from "@/lib/filters";
 
 type Props = {
   page: number;
   totalPages: number;
   total: number;
-  categories: string[];
-  sources: string[];
+  selection: FilterSelection;
 };
 
-export function Pagination({
-  page,
-  totalPages,
-  total,
-  categories,
-  sources,
-}: Props) {
+export function Pagination({ page, totalPages, total, selection }: Props) {
   const hasPrev = page > 0;
   const hasNext = page < totalPages;
   const pageCount = totalPages + 1;
@@ -27,9 +25,7 @@ export function Pagination({
       <div className="page-nav-start">
         {hasPrev ? (
           <Button variant="outline" size="sm" asChild>
-            <Link href={hrefWithFilters(page - 1, categories, sources)}>
-              Previous
-            </Link>
+            <Link href={hrefWithFilters(page - 1, selection)}>Previous</Link>
           </Button>
         ) : (
           <Button variant="outline" size="sm" disabled>
@@ -53,7 +49,7 @@ export function Pagination({
             <Link
               key={label}
               className="page-nav-link"
-              href={hrefWithFilters(pageIndex, categories, sources)}
+              href={hrefWithFilters(pageIndex, selection)}
             >
               {label}
             </Link>
@@ -64,9 +60,7 @@ export function Pagination({
       <div className="page-nav-end">
         {hasNext ? (
           <Button variant="outline" size="sm" asChild>
-            <Link href={hrefWithFilters(page + 1, categories, sources)}>
-              Next
-            </Link>
+            <Link href={hrefWithFilters(page + 1, selection)}>Next</Link>
           </Button>
         ) : (
           <Button variant="outline" size="sm" disabled>
