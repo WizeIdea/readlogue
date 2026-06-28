@@ -67,6 +67,7 @@ sources:
     scraper: rss
     config: config/sources/aisi-blog.yaml
     settings:
+      fetcher: playwright
       max_entries: 25
       default_category: Governance and Policy
 
@@ -74,6 +75,7 @@ sources:
     kind: rss
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/turing-blog.xml
     scraper: rss
+    enabled: false
     settings:
       fetcher: playwright
       max_entries: 25
@@ -84,7 +86,6 @@ sources:
     url: https://raw.githubusercontent.com/alan-turing-institute/ai-rss-feeds/refs/heads/main/feeds/the-batch.xml
     scraper: rss
     settings:
-      fetcher: playwright
       max_entries: 25
       default_category: Research Digests
 

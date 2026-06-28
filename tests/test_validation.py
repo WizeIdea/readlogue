@@ -131,6 +131,19 @@ class ValidateContentTests(unittest.TestCase):
         quality = validate_content("Title", text, "https://example.com/a", "test-source")
         self.assertTrue(quality.is_valid)
 
+    def test_bot_challenge_page_fails(self) -> None:
+        text = (
+            "# www.turing.ac.uk\n\n"
+            "## Performing security verification\n\n"
+            "This website uses a security service to protect against malicious bots. "
+            "This page is displayed while the website verifies you are not a bot.\n\n"
+            "This website uses a security service to protect against malicious bots. "
+            "This page is displayed while the website verifies you are not a bot."
+        )
+        quality = validate_content("www.turing.ac.uk", text, "https://www.turing.ac.uk/blog/x", "turing-blog")
+        self.assertFalse(quality.is_valid)
+        self.assertIn("bot-protection", (quality.reason or "").lower())
+
 
 if __name__ == "__main__":
     unittest.main()

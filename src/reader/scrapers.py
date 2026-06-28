@@ -452,7 +452,7 @@ def _fetch_article(
             paragraph_selector=profile.paragraph_selector,
             content_clean=clean_rules,
         )
-        listing_summary = listing_article.summary
+        listing_summary = listing_article.summary if listing_article is not None else summary
     else:
         title, summary, content, author, raw_html, hero_image_url = extract_article(
             article_url,

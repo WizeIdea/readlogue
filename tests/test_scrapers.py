@@ -291,6 +291,52 @@ class RssSourceHandlerTests(unittest.TestCase):
 
     @patch("reader.scrapers._fetch_article")
     @patch("reader.scrapers.parse_rss_feed")
+    def test_rss_with_config_profile_and_no_listing_article(
+        self, parse_feed: Mock, fetch_article: Mock
+    ) -> None:
+        from reader.config import SourceConfig
+        from reader.scrapers import _handle_rss_source
+        from reader.storage import ArticleRecord, connect, initialize
+
+        parse_feed.return_value = [
+            ArticleRecord(
+                source_name="aisi-blog",
+                source_url="https://example.com/feed.xml",
+                url="https://www.aisi.gov.uk/blog/first-progress-report",
+                title="First Progress Report",
+                summary="RSS summary",
+                content="RSS summary",
+                published_at="2023-09-07",
+            )
+        ]
+        fetch_article.return_value = ArticleRecord(
+            source_name="aisi-blog",
+            source_url="https://example.com/feed.xml",
+            url="https://www.aisi.gov.uk/blog/first-progress-report",
+            title="First Progress Report",
+            summary="Full article summary",
+            content="Full article body with enough words for validation downstream in other tests.",
+            published_at=None,
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            db_path = Path(temp_dir) / "reader.db"
+            initialize(db_path)
+            with connect(db_path) as connection:
+                source = SourceConfig(
+                    name="aisi-blog",
+                    kind="rss",
+                    url="https://example.com/feed.xml",
+                    config_path=Path("config/sources/aisi-blog.yaml"),
+                    settings={"max_entries": 25, "default_category": "Governance and Policy"},
+                )
+                articles = _handle_rss_source(source, connection)
+
+        self.assertEqual(len(articles), 1)
+        fetch_article.assert_called_once()
+
+    @patch("reader.scrapers._fetch_article")
+    @patch("reader.scrapers.parse_rss_feed")
     def test_rss_applies_default_category(self, parse_feed: Mock, fetch_article: Mock) -> None:
         from reader.config import SourceConfig
         from reader.scrapers import _handle_rss_source

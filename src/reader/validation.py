@@ -102,6 +102,15 @@ def validate_content(
             word_count=word_count,
         )
 
+    # --- 1b. Bot / CDN challenge pages (Cloudflare, etc.) --------------------
+    bot_reason = _bot_challenge_reason(title, content)
+    if bot_reason:
+        return ContentQuality(
+            is_valid=False,
+            reason=bot_reason,
+            word_count=word_count,
+        )
+
     # --- 2. HTML / markup residue --------------------------------------------
     html_residue = _has_html_residue(content)
     if html_residue:
@@ -129,6 +138,27 @@ def validate_content(
         )
 
     return ContentQuality(is_valid=True, word_count=word_count)
+
+
+_BOT_CHALLENGE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"performing security verification", re.I),
+    re.compile(
+        r"this website uses a security service to protect against malicious bots",
+        re.I,
+    ),
+    re.compile(r"verify you are not a bot", re.I),
+    re.compile(r"checking if the site connection is secure", re.I),
+    re.compile(r"attention required!\s*\|\s*cloudflare", re.I),
+)
+
+
+def _bot_challenge_reason(title: str, content: str) -> str | None:
+    """Return a rejection reason when *content* looks like a bot-check interstitial."""
+    haystack = f"{title}\n{content}"
+    for pattern in _BOT_CHALLENGE_PATTERNS:
+        if pattern.search(haystack):
+            return "content appears to be a bot-protection challenge page, not article text"
+    return None
 
 
 def _has_html_residue(content: str) -> bool:

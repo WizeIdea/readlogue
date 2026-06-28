@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.5] - 2026-06-27
+
+### Fixed
+- Reject Cloudflare / bot-protection challenge pages during validation (prevents turing.ac.uk interstitial text being stored as articles)
+- RSS sources with a `config:` profile no longer crash when `listing_article` is `None` (`aisi-blog` `'NoneType' object has no attribute 'summary'`)
+- `aisi-blog` uses `fetcher: playwright` for full gov.uk article bodies; `the-batch` back to `requests` (Playwright returned teaser-only HTML on GHA)
+- `turing-blog` disabled until manual import or a working fetch path (datacenter Playwright still lands on challenge pages)
+
 ## [1.4.4] - 2026-06-27
 
 ### Added
