@@ -296,6 +296,8 @@ def _handle_listing_source(
     discovered_articles = parse_listing_articles(
         source_config.url,
         fetcher=profile.fetcher,
+        listing_fetcher=profile.listing_fetcher,
+        playwright_wait_selector=profile.playwright_wait_selector,
         item_selector=profile.item_selector,
         link_selector=profile.link_selector,
         title_selector=profile.title_selector,
@@ -517,6 +519,7 @@ def _fetch_article(
             content_root_selector=profile.content_root_selector,
             paragraph_selector=profile.paragraph_selector,
             content_clean=clean_rules,
+            playwright_wait_selector=profile.playwright_article_wait_selector or profile.playwright_wait_selector,
         )
         listing_summary = listing_article.summary if listing_article is not None else summary
     else:
@@ -691,6 +694,8 @@ def parse_listing_articles(
     listing_url: str,
     html: str | None = None,
     fetcher: str = "requests",
+    listing_fetcher: str | None = None,
+    playwright_wait_selector: str | None = None,
     item_selector: str = "a[href]",
     link_selector: str = "a[href]",
     title_selector: str | None = None,
@@ -705,7 +710,12 @@ def parse_listing_articles(
 ) -> list[ListingArticle]:
     BeautifulSoup = _load_beautifulsoup()
     if html is None:
-        html = _fetch_html(listing_url, fetcher=fetcher, timeout=timeout)
+        html = _fetch_html(
+            listing_url,
+            fetcher=listing_fetcher or fetcher,
+            timeout=timeout,
+            playwright_wait_selector=playwright_wait_selector,
+        )
     soup = BeautifulSoup(html, "html.parser")
     items = soup.select(item_selector) if item_selector else soup.select(link_selector)
     articles: list[ListingArticle] = []
@@ -803,6 +813,7 @@ def extract_article(
     timeout: int = 15,
     *,
     content_clean: ContentCleanRules | None = None,
+    playwright_wait_selector: str | None = None,
 ) -> tuple[str, str, str | None, str | None, str, str | None]:
     """Fetch *url*, parse it, and return (title, summary, content, author, raw_html, hero_image_url).
 
@@ -810,7 +821,12 @@ def extract_article(
     image URL from Open Graph / Twitter meta tags when available.
     """
     BeautifulSoup = _load_beautifulsoup()
-    html = _fetch_html(url, fetcher=fetcher, timeout=timeout)
+    html = _fetch_html(
+        url,
+        fetcher=fetcher,
+        timeout=timeout,
+        playwright_wait_selector=playwright_wait_selector,
+    )
     soup = BeautifulSoup(html, "html.parser")
     title = _first_text(soup, [title_selector] if title_selector else ["h1", "title"]) or url
 
@@ -1202,17 +1218,43 @@ def _load_html2text():
     return html2text.HTML2Text()
 
 
-def _fetch_html(url: str, fetcher: str, timeout: int) -> str:
+def _fetch_html(url: str, fetcher: str, timeout: int, *, playwright_wait_selector: str | None = None) -> str:
+    import logging
+
+    logger = logging.getLogger(__name__)
+    playwright_timeout = max(timeout, 60)
+
     if fetcher == "playwright":
-        playwright = _load_playwright_browser()
-        with playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            page = browser.new_page()
-            page.goto(url, timeout=timeout * 1000)
-            html = page.content()
-            browser.close()
-            return html
+        return _fetch_html_playwright(url, playwright_timeout, playwright_wait_selector)
 
     response = requests.get(url, timeout=timeout, headers={"User-Agent": "reader/0.1.0"})
+    if response.status_code == 403:
+        logger.info("HTTP 403 for %s — retrying with Playwright", url)
+        return _fetch_html_playwright(url, playwright_timeout, playwright_wait_selector)
     response.raise_for_status()
     return response.text
+
+
+_BROWSER_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+
+
+def _fetch_html_playwright(
+    url: str,
+    timeout: int,
+    playwright_wait_selector: str | None = None,
+) -> str:
+    playwright = _load_playwright_browser()
+    with playwright() as p:
+        browser = p.chromium.launch(headless=True)
+        context = browser.new_context(user_agent=_BROWSER_USER_AGENT, locale="en-AU")
+        page = context.new_page()
+        page.goto(url, wait_until="domcontentloaded", timeout=timeout * 1000)
+        if playwright_wait_selector:
+            with contextlib.suppress(Exception):
+                page.wait_for_selector(playwright_wait_selector, timeout=timeout * 1000)
+        html = page.content()
+        browser.close()
+        return html

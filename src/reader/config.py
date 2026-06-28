@@ -30,6 +30,9 @@ class ContentCleanRules:
 @dataclass(frozen=True)
 class ListingSourceProfile:
     fetcher: str = "requests"
+    listing_fetcher: str = "requests"
+    playwright_wait_selector: str | None = None
+    playwright_article_wait_selector: str | None = None
     api_tag: str | None = None
     item_selector: str = "a[href]"
     link_selector: str = "a[href]"
@@ -119,8 +122,18 @@ def load_listing_profile(path: str | Path | None) -> ListingSourceProfile:
 
     profile_path = Path(path)
     raw = yaml.safe_load(profile_path.read_text(encoding="utf-8")) or {}
+    fetcher = str(raw.get("fetcher", "requests"))
     return ListingSourceProfile(
-        fetcher=str(raw.get("fetcher", "requests")),
+        fetcher=fetcher,
+        listing_fetcher=str(raw.get("listing_fetcher", fetcher)),
+        playwright_wait_selector=(
+            str(raw["playwright_wait_selector"]) if raw.get("playwright_wait_selector") else None
+        ),
+        playwright_article_wait_selector=(
+            str(raw["playwright_article_wait_selector"])
+            if raw.get("playwright_article_wait_selector")
+            else None
+        ),
         api_tag=(str(raw["api_tag"]) if raw.get("api_tag") else None),
         item_selector=str(raw.get("item_selector", raw.get("link_selector", "a[href]"))),
         link_selector=str(raw.get("link_selector", "a[href]")),

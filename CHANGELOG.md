@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - UniMelb newsroom sources switched from RSS to topic **listing** scrape — `/newsroom/feed?queries_category_query=…` returns 403 from GHA; topic pages return static article links
+- UniMelb listing uses `listing_fetcher: playwright` with Cloudflare-tolerant browser context; HTTP 403 on `requests` auto-retries via Playwright (`playwright_wait_selector` on listing profiles)
 
 ### Notes
 - Apply Supabase migration [`005_item_curation.sql`](supabase/migrations/005_item_curation.sql) before sync if the `curation` column is missing
