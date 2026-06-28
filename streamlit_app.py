@@ -23,7 +23,7 @@ from reader.storage import (
 st.set_page_config(page_title="Reader", layout="wide")
 st.title("Reader")
 
-config_path = Path(st.sidebar.text_input("Config file", value="config.example.yaml"))
+config_path = Path(st.sidebar.text_input("Config file", value="config.yaml"))
 config = load_config(config_path)
 initialize(config.database)
 

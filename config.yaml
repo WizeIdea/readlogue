@@ -1,3 +1,5 @@
+# LIVE CONFIG — used by GitHub Actions ingest and local runs (not a template).
+# After editing categories below, run: python scripts/sync_categories.py
 database: data/reader.db
 
 # URLs skipped before fetch (no HTTP request, no validation). Substrings match anywhere in the normalized URL.
@@ -13,26 +15,47 @@ auto_skip_failure_threshold: 3
 
 categories:
   - Technical Research
-  - Research Digests
+  - News Digests
   - AI News
+  - Vendor News
   - Governance and Policy
-  - Safety and Alignment
   - Product Updates
+  - Education
   - Other
+
+# Curation picklists (stored per-article in items.curation JSON; UI validates against these)
+article_types:
+  - research
+  - news
+  - governance
+  - opinion
+
+article_domains:
+  - LLMs
+  - optimisation
+  - computer vision
+  - RAG
+  - agents
+  - robotics
+  - ethics
+  - policy
+
 sources:
-  # --- Next GHA run: batch 4 Governance and Policy + prior batch 3 sources ---
+  # --- Next GHA run: aisi-blog + the-batch only ---
   - name: csail-news
     kind: listing
     url: https://www.csail.mit.edu/news/
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/csail-news.yaml
     settings:
-      default_category: Governance and Policy
+      default_category: Education
 
   - name: oecd-ai-wonk
     kind: listing
     url: https://oecd.ai/en/wonk
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/oecd-ai-wonk.yaml
     settings:
       default_category: Governance and Policy
@@ -41,6 +64,7 @@ sources:
     kind: rss
     url: https://partnershiponai.org/feed/
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: Governance and Policy
@@ -49,6 +73,7 @@ sources:
     kind: rss
     url: https://ainowinstitute.org/publications/feed
     scraper: rss
+    enabled: false
     settings:
       max_entries: 25
       default_category: Governance and Policy
@@ -57,6 +82,7 @@ sources:
     kind: listing
     url: https://digital-strategy.ec.europa.eu/en/news
     scraper: beautifulsoup
+    enabled: false
     config: config/sources/eu-digital-strategy-news.yaml
     settings:
       default_category: Governance and Policy
@@ -87,7 +113,7 @@ sources:
     scraper: rss
     settings:
       max_entries: 25
-      default_category: Research Digests
+      default_category: News Digests
 
   # --- Tested OK — enable with next batch of new sources ---
   - name: anthropic-engineering
@@ -96,6 +122,8 @@ sources:
     scraper: beautifulsoup
     enabled: false
     config: config/sources/anthropic-engineering.yaml
+    settings:
+      default_category: Technical Research
 
   - name: anthropic-frontier-red-team
     kind: listing
@@ -103,6 +131,8 @@ sources:
     scraper: beautifulsoup
     enabled: false
     config: config/sources/anthropic-frontier-red-team.yaml
+    settings:
+      default_category: Technical Research
 
   - name: allenai-news
     kind: rss
@@ -120,7 +150,7 @@ sources:
     enabled: false
     settings:
       max_entries: 25
-      default_category: AI News
+      default_category: Vendor News
 
   - name: tldr-ai
     kind: rss
@@ -129,7 +159,7 @@ sources:
     enabled: false
     settings:
       max_entries: 25
-      default_category: Research Digests
+      default_category: News Digests
 
   # --- Batch 1 RSS (tested OK) ---
   - name: huggingface-blog
@@ -140,7 +170,7 @@ sources:
     config: config/sources/huggingface-blog.yaml
     settings:
       max_entries: 25
-      default_category: AI News
+      default_category: Vendor News
 
   - name: microsoft-research-blog
     kind: rss
@@ -167,7 +197,7 @@ sources:
     enabled: false
     settings:
       max_entries: 25
-      default_category: AI News
+      default_category: Vendor News
 
   - name: importai
     kind: rss
@@ -176,7 +206,7 @@ sources:
     enabled: false
     settings:
       max_entries: 25
-      default_category: Research Digests
+      default_category: News Digests
 
   - name: nist-news
     kind: rss
@@ -203,6 +233,8 @@ sources:
     scraper: requests
     enabled: false
     config: config/sources/huggingface-ethics.yaml
+    settings:
+      default_category: Governance and Policy
 
   - name: huggingface-research
     kind: api_tag
@@ -210,6 +242,8 @@ sources:
     scraper: requests
     enabled: false
     config: config/sources/huggingface-research.yaml
+    settings:
+      default_category: Technical Research
 
   - name: deepmind-google-blog
     kind: rss
@@ -218,6 +252,7 @@ sources:
     enabled: false
     settings:
       max_entries: 25
+      default_category: Technical Research
 
   - name: anthropic-research
     kind: listing
@@ -225,6 +260,8 @@ sources:
     scraper: beautifulsoup
     enabled: false
     config: config/sources/anthropic-research.yaml
+    settings:
+      default_category: Technical Research
 
   - name: anthropic-news
     kind: listing
@@ -232,6 +269,9 @@ sources:
     scraper: beautifulsoup
     enabled: false
     config: config/sources/anthropic-news.yaml
+    settings:
+      max_entries: 25    
+      default_category: Vendor News
 
   - name: stanford-hai-news
     kind: listing
@@ -239,6 +279,8 @@ sources:
     scraper: beautifulsoup
     enabled: false
     config: config/sources/stanford-hai-news.yaml
+    settings:
+      default_category: Education
 
   - name: bair-blog
     kind: listing
@@ -246,3 +288,5 @@ sources:
     scraper: requests
     enabled: false
     config: config/sources/bair-blog.yaml
+    settings:
+      default_category: Education    

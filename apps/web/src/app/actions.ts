@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { patchItem } from "@/lib/items";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import type { CurationV1 } from "@/lib/curation";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -41,6 +42,13 @@ export async function setCategory(itemId: number, category: string | null) {
   await requireUser();
   const admin = createAdminClient();
   await patchItem(admin, itemId, { category });
+  revalidatePath("/");
+}
+
+export async function setCuration(itemId: number, curation: CurationV1) {
+  await requireUser();
+  const admin = createAdminClient();
+  await patchItem(admin, itemId, { curation });
   revalidatePath("/");
 }
 

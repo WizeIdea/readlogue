@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.7] - 2026-06-27
+
+### Added
+- `items.curation` jsonb column for human labeling (multi-tag `article_types` / `article_domains`, 1–5 relevance scores) — migration [`005_item_curation.sql`](supabase/migrations/005_item_curation.sql)
+- [`src/reader/curation.py`](src/reader/curation.py) helpers; SQLite schema v5; sync via [`supabase_sync.py`](src/reader/supabase_sync.py)
+- `article_types` and `article_domains` vocabularies in [`config.yaml`](config.yaml)
+- Web types [`apps/web/src/lib/curation.ts`](apps/web/src/lib/curation.ts) and `setCuration` server action (UI controls follow-up)
+
+### Notes
+- Truncate Supabase before applying migration 005, then re-ingest; ingest never overwrites existing `curation` on re-fetch
+
+## [1.4.6] - 2026-06-27
+
+### Changed
+- Renamed `config.example.yaml` → [`config.yaml`](config.yaml) (live operational config for GHA ingest, not a template)
+- Categories are defined only in `config.yaml`; removed duplicate `DEFAULT_CATEGORIES` from [`src/reader/config.py`](src/reader/config.py)
+- [`apps/web/src/lib/categories.ts`](apps/web/src/lib/categories.ts) is generated from `config.yaml` via [`scripts/sync_categories.py`](scripts/sync_categories.py)
+- CI test guards against category list drift between config and web UI
+
 ## [1.4.5] - 2026-06-27
 
 ### Fixed

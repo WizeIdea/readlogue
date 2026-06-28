@@ -10,6 +10,7 @@ Production index lives in Supabase Postgres. GitHub Actions hydrates a scratch S
    - [`migrations/002_rls_policies.sql`](migrations/002_rls_policies.sql)
    - [`migrations/003_ignored_urls.sql`](migrations/003_ignored_urls.sql)
    - [`migrations/004_hero_image_url.sql`](migrations/004_hero_image_url.sql)
+   - [`migrations/005_item_curation.sql`](migrations/005_item_curation.sql) — apply after truncating `items` during QA
 3. Add GitHub Actions secrets on the main repo:
    - `SUPABASE_URL` — project URL
    - `SUPABASE_SERVICE_ROLE_KEY` — **service role** key (never expose to frontend)

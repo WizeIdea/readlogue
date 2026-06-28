@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 
 def utc_now() -> str:
@@ -186,6 +186,7 @@ def _run_migrations(connection: sqlite3.Connection) -> None:
         (1, "items", "source_category", "text"),
         (2, "items", "raw_html_path", "text"),
         (4, "items", "hero_image_url", "text"),
+        (5, "items", "curation", "text not null default '{}'"),
     ]
 
     for version, table_name, column_name, column_def in migrations:
@@ -310,8 +311,9 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
             """
             insert into items(
                 source_id, fingerprint, url, title, summary, content, author, published_at,
-                source_category, category, raw_html_path, hero_image_url, created_at, updated_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                source_category, category, raw_html_path, hero_image_url, curation,
+                created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 source_id,
@@ -326,6 +328,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
                 article.category,
                 article.raw_html_path,
                 article.hero_image_url,
+                "{}",
                 utc_now(),
                 utc_now(),
             ),
@@ -385,6 +388,13 @@ def set_category(connection: sqlite3.Connection, item_id: int, category: str | N
     connection.execute(
         "update items set category = ?, updated_at = ? where id = ?",
         (category, utc_now(), item_id),
+    )
+
+
+def set_curation(connection: sqlite3.Connection, item_id: int, curation_json: str) -> None:
+    connection.execute(
+        "update items set curation = ?, updated_at = ? where id = ?",
+        (curation_json, utc_now(), item_id),
     )
 
 

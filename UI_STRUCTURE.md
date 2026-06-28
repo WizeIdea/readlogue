@@ -9,7 +9,7 @@ readlogue/
 ├── apps/web/                 # Next.js dashboard (hosted UI)
 ├── src/reader/               # Python ingest pipeline
 ├── config/                   # Source YAML profiles
-├── config.example.yaml       # Main ingest + category config
+├── config.yaml                 # Live ingest + category config (GHA + local)
 ├── supabase/migrations/      # Postgres schema (production index)
 ├── streamlit_app.py          # Optional local UI (SQLite only)
 ├── .github/workflows/        # GHA ingest
@@ -25,7 +25,7 @@ readlogue/
 | `storage.py` | SQLite schema, upserts, curation fields, exports |
 | `supabase_sync.py` | Hydrate/sync scratch SQLite ↔ Supabase; `fetch_runtime_ignores()` |
 | `validation.py` | Content quality checks; failures → `ingestion_log` |
-| `config.py` | Loads `config.example.yaml` |
+| `config.py` | Loads `config.yaml` |
 | `db_backup.py` | Daily/monthly SQLite backups to data repo |
 
 ## Supabase (production index)
@@ -36,6 +36,7 @@ readlogue/
 | `002_rls_policies.sql` | Authenticated read policies |
 | `003_ignored_urls.sql` | Runtime ignore list (UI writes) |
 | `004_hero_image_url.sql` | `hero_image_url` on `items` |
+| `005_item_curation.sql` | `curation jsonb` on `items` (human labels) |
 
 Setup: [`supabase/README.md`](supabase/README.md)
 
@@ -91,7 +92,7 @@ Styled via `globals.css` class names (`.btn`, `.alert`, `.select-trigger`, etc.)
 |------|---------|
 | `src/lib/items.ts` | `listItemsPage`, `listIngestionFailures`, `patchItem`, `urlIgnoreSubstring` |
 | `src/lib/types.ts` | `ItemRow`, `IngestionFailure`, `PAGE_SIZE` |
-| `src/lib/categories.ts` | Category list (keep in sync with `config.example.yaml`) |
+| `src/lib/categories.ts` | Category list (generated from `config.yaml` via `scripts/sync_categories.py`) |
 | `src/lib/utils.ts` | `cn()` class name helper |
 | `src/lib/supabase/server.ts` | Server Supabase client (reads, session) |
 | `src/lib/supabase/client.ts` | Browser client (login only) |

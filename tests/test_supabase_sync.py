@@ -71,6 +71,7 @@ class SupabaseSyncTests(unittest.TestCase):
                     "rating": None,
                     "raw_html_path": "raw_html/2026-06-27/file.html",
                     "hero_image_url": "https://example.com/hero.jpg",
+                    "curation": {"v": 1, "article_types": ["research"]},
                     "created_at": "2026-06-27T00:00:00+00:00",
                     "updated_at": "2026-06-27T00:00:00+00:00",
                 }
@@ -82,6 +83,8 @@ class SupabaseSyncTests(unittest.TestCase):
             hydrate_sqlite_from_supabase(connection)
             row = connection.execute("select count(*) as cnt from items").fetchone()
             self.assertEqual(int(row["cnt"]), 1)
+            curation = connection.execute("select curation from items where id = 10").fetchone()
+            self.assertIn("research", curation["curation"])
 
     @patch("reader.supabase_sync._fetch_all")
     @patch("reader.supabase_sync._client")

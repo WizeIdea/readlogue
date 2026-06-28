@@ -1,3 +1,5 @@
+import type { CurationV1 } from "@/lib/curation";
+
 export type ItemRow = {
   id: number;
   fingerprint: string;
@@ -11,6 +13,7 @@ export type ItemRow = {
   category: string | null;
   source_category: string | null;
   hero_image_url: string | null;
+  curation: CurationV1;
   source_name: string;
 };
 

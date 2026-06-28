@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { IngestionFailure, ItemRow } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/types";
+import { parseCuration, type CurationV1 } from "@/lib/curation";
 
 type ItemWithSource = {
   id: number;
@@ -16,6 +17,7 @@ type ItemWithSource = {
   category: string | null;
   source_category: string | null;
   hero_image_url: string | null;
+  curation: unknown;
   sources: { name: string } | { name: string }[] | null;
 };
 
@@ -35,6 +37,7 @@ function mapItem(row: ItemWithSource): ItemRow {
     category: row.category,
     source_category: row.source_category,
     hero_image_url: row.hero_image_url,
+    curation: parseCuration(row.curation),
     source_name: sourceName ?? "Unknown",
   };
 }
@@ -87,6 +90,7 @@ export async function patchItem(
     read_at?: string | null;
     rating?: string | null;
     category?: string | null;
+    curation?: CurationV1;
   },
 ): Promise<void> {
   const { error } = await supabase

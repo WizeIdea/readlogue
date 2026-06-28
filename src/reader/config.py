@@ -52,27 +52,43 @@ class AppConfig:
     database: Path
     sources: list[SourceConfig]
     categories: list[str]
+    article_types: tuple[str, ...] = ()
+    article_domains: tuple[str, ...] = ()
     ignored_urls: tuple[str, ...] = ()
     ignored_url_substrings: tuple[str, ...] = ()
     auto_skip_failure_threshold: int = 3
 
 
-DEFAULT_CATEGORIES = [
-    "Technical Research",
-    "Research Digests",
-    "AI News",
-    "Governance and Policy",
-    "Safety and Alignment",
-    "Product Updates",
-    "Other",
-]
+def _load_string_list(raw: dict, key: str) -> tuple[str, ...]:
+    values = raw.get(key)
+    if not values:
+        return ()
+    if not isinstance(values, list):
+        raise ValueError(f"Config file '{key}' must be a list when present")
+    return tuple(str(value) for value in values)
+
+
+def load_categories(path: str | Path) -> list[str]:
+    """Return the category list from the main config file."""
+    config_path = Path(path)
+    raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    if "categories" not in raw:
+        raise ValueError(
+            f"Config file must include a 'categories' list: {config_path}"
+        )
+    categories = raw["categories"]
+    if not isinstance(categories, list) or not categories:
+        raise ValueError(
+            f"Config file 'categories' must be a non-empty list: {config_path}"
+        )
+    return [str(category) for category in categories]
 
 
 def load_config(path: str | Path) -> AppConfig:
     config_path = Path(path)
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
     source_entries = raw.get("sources") or raw.get("feeds") or []
-    categories = [str(category) for category in raw.get("categories", DEFAULT_CATEGORIES)]
+    categories = load_categories(config_path)
     sources = [
         SourceConfig(
             name=str(feed["name"]),
@@ -89,6 +105,8 @@ def load_config(path: str | Path) -> AppConfig:
         database=Path(raw.get("database", "data/reader.db")),
         sources=sources,
         categories=categories,
+        article_types=_load_string_list(raw, "article_types"),
+        article_domains=_load_string_list(raw, "article_domains"),
         ignored_urls=tuple(str(value) for value in raw.get("ignored_urls", [])),
         ignored_url_substrings=tuple(str(value) for value in raw.get("ignored_url_substrings", [])),
         auto_skip_failure_threshold=int(raw.get("auto_skip_failure_threshold", 3)),

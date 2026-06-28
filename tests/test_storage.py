@@ -155,6 +155,49 @@ class StorageTests(unittest.TestCase):
                 self.assertEqual(rows[0]["source_category"], "Technical Research")
                 self.assertEqual(rows[0]["category"], "Technical Research")
 
+    def test_upsert_preserves_curation_on_reingest(self) -> None:
+        from reader.curation import serialize_curation
+        from reader.storage import set_curation
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                article = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url="https://example.com/post-1",
+                    title="First title",
+                    summary="Summary",
+                    content="Full text",
+                    published_at="2026-06-26T00:00:00+00:00",
+                )
+                self.assertTrue(upsert_article(connection, article))
+                labels = serialize_curation(
+                    {
+                        "v": 1,
+                        "article_types": ["research"],
+                        "article_domains": ["LLMs"],
+                        "governance_relevance": 5,
+                    }
+                )
+                set_curation(connection, 1, labels)
+                connection.commit()
+
+                updated = ArticleRecord(
+                    source_name="source-a",
+                    source_url="https://example.com/feed",
+                    url="https://example.com/post-1",
+                    title="Updated title",
+                    summary="Updated summary",
+                    content="Updated full text with enough words for validation.",
+                    published_at="2026-06-27T00:00:00+00:00",
+                )
+                self.assertFalse(upsert_article(connection, updated))
+                row = connection.execute("select title, curation from items where id = 1").fetchone()
+                self.assertEqual(row["title"], "Updated title")
+                self.assertEqual(row["curation"], labels)
+
     def test_existing_raw_html_path_returns_path_when_file_exists(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             base = Path(temp_dir)

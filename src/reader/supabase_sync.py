@@ -5,6 +5,8 @@ import os
 import sqlite3
 from typing import Any
 
+from reader.curation import parse_curation_json, serialize_curation
+
 logger = logging.getLogger(__name__)
 
 _PAGE_SIZE = 1000
@@ -97,8 +99,8 @@ def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
             insert into items(
                 id, source_id, fingerprint, url, title, summary, content, author,
                 published_at, source_category, category, read_at, rating,
-                raw_html_path, hero_image_url, created_at, updated_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                raw_html_path, hero_image_url, curation, created_at, updated_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 item["id"],
@@ -116,6 +118,7 @@ def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
                 item.get("rating"),
                 item.get("raw_html_path"),
                 item.get("hero_image_url"),
+                serialize_curation(item.get("curation")),
                 item["created_at"],
                 item["updated_at"],
             ),
@@ -217,6 +220,7 @@ def sync_sqlite_to_supabase(connection: sqlite3.Connection) -> None:
                 "rating": row["rating"],
                 "raw_html_path": row["raw_html_path"],
                 "hero_image_url": row["hero_image_url"],
+                "curation": parse_curation_json(row["curation"] if "curation" in row.keys() else "{}"),
                 "created_at": row["created_at"],
                 "updated_at": row["updated_at"],
             },
