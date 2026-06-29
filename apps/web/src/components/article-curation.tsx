@@ -1,9 +1,10 @@
 "use client";
 
+import { Angry, Frown, Laugh, Meh, Smile, type LucideIcon } from "lucide-react";
+
 import { setCuration } from "@/app/actions";
 import {
   nextScore,
-  SCORE_EMOJI,
   toggleTag,
   type CurationV1,
   type ScoreValue,
@@ -36,6 +37,9 @@ const SCORE_ROWS = [
   },
 ];
 
+/** MUI-style sentiment scale: red → green (SVG icons respect CSS `color`). */
+const SCORE_ICONS: readonly LucideIcon[] = [Angry, Frown, Meh, Smile, Laugh];
+
 export function CurationScores({ curation, onPatch }: CurationProps) {
   return (
     <div className="curation-scores">
@@ -54,6 +58,7 @@ export function CurationScores({ curation, onPatch }: CurationProps) {
             <div className="curation-score-buttons">
               {([1, 2, 3, 4, 5] as const).map((value) => {
                 const selected = current === value;
+                const Icon = SCORE_ICONS[value - 1];
                 return (
                   <button
                     key={value}
@@ -69,7 +74,7 @@ export function CurationScores({ curation, onPatch }: CurationProps) {
                       })
                     }
                   >
-                    {SCORE_EMOJI[value - 1]}
+                    <Icon size={18} strokeWidth={2} aria-hidden />
                   </button>
                 );
               })}

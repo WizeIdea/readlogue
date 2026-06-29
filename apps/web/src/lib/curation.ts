@@ -30,8 +30,6 @@ export function isEmptyCuration(curation: CurationV1): boolean {
 
 export type ScoreValue = 1 | 2 | 3 | 4 | 5;
 
-export const SCORE_EMOJI: readonly string[] = ["😞", "😕", "😐", "🙂", "😄"];
-
 export function toggleTag(
   list: string[] | undefined,
   tag: string,

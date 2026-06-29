@@ -89,24 +89,29 @@ export function ArticleRow({ item }: Props) {
 
       <div className="article-col-middle">
         <p className="article-meta">{formatMeta(item)}</p>
-        <div
-          className="article-read-target"
-          role="button"
-          tabIndex={0}
-          aria-pressed={isRead}
-          aria-label={isRead ? "Mark as unread" : "Mark as read"}
-          onClick={toggleRead}
-          onKeyDown={onReadTargetKeyDown}
-        >
-          <h2 className="article-title">
-            <a href={item.url} target="_blank" rel="noopener noreferrer">
-              {item.title}
-            </a>
-          </h2>
-          {item.summary?.trim() && (
+        <h2 className="article-title">
+          <a
+            href={item.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => event.stopPropagation()}
+          >
+            {item.title}
+          </a>
+        </h2>
+        {item.summary?.trim() && (
+          <div
+            className="article-read-target"
+            role="button"
+            tabIndex={0}
+            aria-pressed={isRead}
+            aria-label={isRead ? "Mark as unread" : "Mark as read"}
+            onClick={toggleRead}
+            onKeyDown={onReadTargetKeyDown}
+          >
             <p className="article-summary">{item.summary}</p>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       <div className="article-col-hero">

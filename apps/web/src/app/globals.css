@@ -204,9 +204,9 @@ a:hover {
 }
 
 .filter-pill--active {
-  background: var(--primary);
+  background: transparent;
   border-color: var(--primary);
-  color: var(--primary-foreground);
+  color: var(--primary);
 }
 
 .filter-section-actions {
@@ -465,8 +465,12 @@ a:hover {
 .article-read-target {
   cursor: pointer;
   border-radius: var(--radius);
-  margin: 0 calc(-1 * var(--space-1));
+  margin: var(--space-1) calc(-1 * var(--space-1)) 0;
   padding: var(--space-1);
+}
+
+.article-read-target .article-summary {
+  margin: 0;
 }
 
 .article-read-target:hover {
@@ -536,17 +540,24 @@ a:hover {
 }
 
 .curation-score-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 1.625rem;
   height: 1.625rem;
   padding: 0;
   border: 1px solid transparent;
   border-radius: 3px;
   background: transparent;
-  font-size: 1rem;
   line-height: 1;
   cursor: pointer;
-  opacity: 0.45;
+  opacity: 0.65;
   font-family: inherit;
+}
+
+.curation-score-btn svg {
+  display: block;
+  color: inherit;
 }
 
 .curation-score-btn--1 {
@@ -570,7 +581,7 @@ a:hover {
 }
 
 .curation-score-btn:hover {
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
 .curation-score-btn--selected {
@@ -653,9 +664,9 @@ a:hover {
 }
 
 .curation-chip--type.curation-chip--active {
-  background: var(--primary);
+  background: transparent;
   border-color: var(--primary);
-  color: var(--primary-foreground);
+  color: var(--primary);
 }
 
 .curation-chip--domain {
