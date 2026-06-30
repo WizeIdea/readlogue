@@ -46,6 +46,16 @@ def _clear_sqlite_state(connection: sqlite3.Connection) -> None:
     connection.execute("delete from ingestion_log")
     connection.execute("delete from items")
     connection.execute("delete from sources")
+    connection.execute("delete from validation_whitelist")
+
+
+def fetch_validation_whitelist() -> frozenset[str]:
+    """Load analyst-whitelisted article fingerprints from Supabase."""
+    if not is_supabase_configured():
+        return frozenset()
+
+    rows = _fetch_all("validation_whitelist", "article_fingerprint")
+    return frozenset(str(row["article_fingerprint"]) for row in rows)
 
 
 def fetch_runtime_ignores() -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -76,6 +86,7 @@ def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
     sources = _fetch_all("sources")
     items = _fetch_all("items")
     failures = _fetch_all("ingestion_log")
+    whitelist = _fetch_all("validation_whitelist")
 
     _clear_sqlite_state(connection)
 
@@ -130,8 +141,8 @@ def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
             """
             insert into ingestion_log(
                 source_name, article_url, article_fingerprint, severity, message,
-                failure_count, created_at, last_seen_at
-            ) values (?, ?, ?, ?, ?, ?, ?, ?)
+                article_title, failure_count, created_at, last_seen_at
+            ) values (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 failure["source_name"],
@@ -139,17 +150,32 @@ def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
                 failure["article_fingerprint"],
                 failure.get("severity", "warning"),
                 failure["message"],
+                failure.get("article_title"),
                 failure["failure_count"],
                 failure["created_at"],
                 failure["last_seen_at"],
             ),
         )
 
+    for entry in whitelist:
+        connection.execute(
+            """
+            insert into validation_whitelist(article_fingerprint, article_url, created_at)
+            values (?, ?, ?)
+            """,
+            (
+                entry["article_fingerprint"],
+                entry["article_url"],
+                entry["created_at"],
+            ),
+        )
+
     logger.info(
-        "Hydrated scratch SQLite from Supabase: sources=%d items=%d ingestion_log=%d",
+        "Hydrated scratch SQLite from Supabase: sources=%d items=%d ingestion_log=%d validation_whitelist=%d",
         len(sources),
         len(items),
         len(failures),
+        len(whitelist),
     )
     for table in ("sources", "items"):
         row = connection.execute(f"select max(id) as max_id from {table}").fetchone()
@@ -244,7 +270,7 @@ def sync_sqlite_to_supabase(connection: sqlite3.Connection, delta: SyncDelta) ->
         failure_rows = connection.execute(
             f"""
             select source_name, article_url, article_fingerprint, severity, message,
-                   failure_count, created_at, last_seen_at
+                   article_title, failure_count, created_at, last_seen_at
             from ingestion_log
             where article_fingerprint in ({placeholders})
             """,
@@ -258,6 +284,7 @@ def sync_sqlite_to_supabase(connection: sqlite3.Connection, delta: SyncDelta) ->
                     "article_fingerprint": row["article_fingerprint"],
                     "severity": row["severity"],
                     "message": row["message"],
+                    "article_title": row["article_title"],
                     "failure_count": row["failure_count"],
                     "created_at": row["created_at"],
                     "last_seen_at": row["last_seen_at"],

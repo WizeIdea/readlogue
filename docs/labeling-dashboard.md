@@ -64,8 +64,9 @@ When the ingestion pipeline cannot fetch or validate a source, the dashboard sur
 
 ![Ingestion failure banner — ignore or dismiss alerts from the labeling dashboard](assets/ingestion-failures-banner.png)
 
-- **Ignore** — add a URL pattern to the runtime suppress list (merged into the next ingest run)
-- **Dismiss** — clear the alert without changing pipeline rules
+- **Add** — whitelist the article URL so the next ingest run still fetches it but skips voluntary content-quality checks (word count, HTML residue, lexical diversity) if extraction succeeds; bot-protection checks still apply
+- **Ignore** — add a URL pattern to the runtime suppress list so matching URLs are never fetched again
+- **Dismiss** — clear the alert without changing pipeline rules; the URL will be retried on the next run
 
 This closes the loop between automated collection and human oversight: the team sees problems immediately and can act without filing a ticket to IT.
 

@@ -910,6 +910,13 @@ a:hover {
   background: var(--background);
 }
 
+.failure-card-meta {
+  margin: 0 0 var(--space-1);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  color: var(--muted-foreground);
+}
+
 .failure-card-title {
   margin: 0 0 var(--space-2);
   font-size: 0.875rem;
@@ -938,6 +945,42 @@ a:hover {
   flex-wrap: wrap;
   gap: var(--space-1);
   margin-top: var(--space-2);
+}
+
+.failure-action-btn {
+  padding: var(--space-1) var(--space-2);
+  font-size: 0.75rem;
+  line-height: 1.3;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--foreground);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.failure-action-btn:hover:not(:disabled) {
+  background: var(--accent);
+}
+
+.failure-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.failure-action-btn--add {
+  border-color: var(--score-5);
+  color: var(--score-5);
+}
+
+.failure-action-btn--ignore {
+  border-color: var(--destructive);
+  color: var(--destructive);
+}
+
+.failure-action-btn--dismiss {
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 /* --- 8. Select --- */

@@ -144,6 +144,31 @@ class ValidateContentTests(unittest.TestCase):
         self.assertFalse(quality.is_valid)
         self.assertIn("bot-protection", (quality.reason or "").lower())
 
+    def test_skip_voluntary_checks_bypasses_word_count_but_not_bot(self) -> None:
+        short_text = "hello world"
+        quality = validate_content(
+            "Title",
+            short_text,
+            "https://example.com/a",
+            "test-source",
+            skip_voluntary_checks=True,
+        )
+        self.assertTrue(quality.is_valid)
+
+        bot_text = (
+            "This website uses a security service to protect against malicious bots. "
+            "This page is displayed while the website verifies you are not a bot."
+        )
+        quality = validate_content(
+            "Title",
+            bot_text,
+            "https://example.com/a",
+            "test-source",
+            skip_voluntary_checks=True,
+        )
+        self.assertFalse(quality.is_valid)
+        self.assertIn("bot-protection", (quality.reason or "").lower())
+
 
 if __name__ == "__main__":
     unittest.main()

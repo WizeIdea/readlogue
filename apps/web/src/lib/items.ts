@@ -146,7 +146,7 @@ export async function listIngestionFailures(
   const { data, error } = await supabase
     .from("ingestion_log")
     .select(
-      "id, source_name, article_url, article_fingerprint, message, failure_count",
+      "id, source_name, article_url, article_fingerprint, article_title, message, failure_count",
     )
     .order("created_at", { ascending: false });
 

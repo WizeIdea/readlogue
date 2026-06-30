@@ -23,6 +23,7 @@ from reader.storage import (
     save_raw_html,
     set_category,
     upsert_article,
+    validation_whitelist_fingerprints,
 )
 
 
@@ -306,6 +307,25 @@ class IngestionLogTests(unittest.TestCase):
                 self.assertEqual(int(row["failure_count"]), 2)
                 self.assertEqual(row["message"], "too short again")
 
+    def test_log_ingestion_failure_stores_article_title(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                log_ingestion_failure(
+                    connection,
+                    "source-a",
+                    "https://example.com/bad",
+                    "too short",
+                    article_title="Example headline",
+                )
+                connection.commit()
+                row = connection.execute(
+                    "select article_title from ingestion_log where article_fingerprint = ?",
+                    (item_fingerprint("https://example.com/bad"),),
+                ).fetchone()
+                self.assertEqual(row["article_title"], "Example headline")
+
     def test_known_failed_fingerprints_respects_threshold(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             database = Path(temp_dir) / "reader.db"
@@ -407,6 +427,24 @@ class IngestionLogTests(unittest.TestCase):
                 self.assertEqual(int(row["failure_count"]), 2)
                 self.assertEqual(row["message"], "second")
                 self.assertEqual(row["article_fingerprint"], item_fingerprint("https://example.com/dup"))
+
+
+class ValidationWhitelistTests(unittest.TestCase):
+    def test_validation_whitelist_fingerprints(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            database = Path(temp_dir) / "reader.db"
+            initialize(database)
+            with connect(database) as connection:
+                fp = item_fingerprint("https://example.com/whitelisted")
+                connection.execute(
+                    """
+                    insert into validation_whitelist(article_fingerprint, article_url, created_at)
+                    values (?, ?, ?)
+                    """,
+                    (fp, "https://example.com/whitelisted", "2026-06-30T00:00:00+00:00"),
+                )
+                connection.commit()
+                self.assertEqual(validation_whitelist_fingerprints(connection), {fp})
 
 
 class PaginationTests(unittest.TestCase):

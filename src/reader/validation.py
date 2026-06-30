@@ -79,6 +79,7 @@ def validate_content(
     source_name: str,
     *,
     min_word_count: int = _MIN_WORD_COUNT,
+    skip_voluntary_checks: bool = False,
 ) -> ContentQuality:
     """Run all content-quality checks and return a summary.
 
@@ -87,54 +88,56 @@ def validate_content(
     2. HTML / markup residue (unescaped tags in the extracted text).
     3. Lexical diversity (ratio of unique words to total words below 20 %
        suggests repetitive boilerplate or garbage).
+    4. Bot / CDN challenge pages (always enforced).
     """
     words = content.split()
     word_count = len(words)
 
-    # --- 1. Minimum word count -------------------------------------------------
-    if word_count < min_word_count:
-        return ContentQuality(
-            is_valid=False,
-            reason=(
-                f"content too short: {word_count} words "
-                f"(minimum {min_word_count})"
-            ),
-            word_count=word_count,
-        )
+    if not skip_voluntary_checks:
+        # --- 1. Minimum word count -------------------------------------------------
+        if word_count < min_word_count:
+            return ContentQuality(
+                is_valid=False,
+                reason=(
+                    f"content too short: {word_count} words "
+                    f"(minimum {min_word_count})"
+                ),
+                word_count=word_count,
+            )
 
-    # --- 1b. Bot / CDN challenge pages (Cloudflare, etc.) --------------------
+        # --- 2. HTML / markup residue --------------------------------------------
+        html_residue = _has_html_residue(content)
+        if html_residue:
+            return ContentQuality(
+                is_valid=False,
+                reason="content contains HTML markup residue (unescaped tags)",
+                word_count=word_count,
+                html_residue=True,
+            )
+
+        # --- 3. Low lexical diversity (garbage / repetitive text) -----------------
+        unique_words = len({w.lower() for w in words})
+        diversity_ratio = unique_words / word_count if word_count > 0 else 0.0
+        low_diversity = diversity_ratio < 0.20
+        if low_diversity:
+            return ContentQuality(
+                is_valid=False,
+                reason=(
+                    f"content has low lexical diversity "
+                    f"({unique_words} unique / {word_count} total = {diversity_ratio:.1%}), "
+                    f"likely boilerplate or garbage"
+                ),
+                word_count=word_count,
+                low_diversity=True,
+            )
+
+    # --- Bot / CDN challenge pages (Cloudflare, etc.) --------------------
     bot_reason = _bot_challenge_reason(title, content)
     if bot_reason:
         return ContentQuality(
             is_valid=False,
             reason=bot_reason,
             word_count=word_count,
-        )
-
-    # --- 2. HTML / markup residue --------------------------------------------
-    html_residue = _has_html_residue(content)
-    if html_residue:
-        return ContentQuality(
-            is_valid=False,
-            reason="content contains HTML markup residue (unescaped tags)",
-            word_count=word_count,
-            html_residue=True,
-        )
-
-    # --- 3. Low lexical diversity (garbage / repetitive text) -----------------
-    unique_words = len({w.lower() for w in words})
-    diversity_ratio = unique_words / word_count if word_count > 0 else 0.0
-    low_diversity = diversity_ratio < 0.20
-    if low_diversity:
-        return ContentQuality(
-            is_valid=False,
-            reason=(
-                f"content has low lexical diversity "
-                f"({unique_words} unique / {word_count} total = {diversity_ratio:.1%}), "
-                f"likely boilerplate or garbage"
-            ),
-            word_count=word_count,
-            low_diversity=True,
         )
 
     return ContentQuality(is_valid=True, word_count=word_count)

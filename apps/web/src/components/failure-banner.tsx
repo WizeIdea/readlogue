@@ -21,13 +21,16 @@ export function FailureBanner({ failures }: Props) {
       <div className="failure-grid">
         {failures.map((failure) => (
           <div key={failure.id} className="failure-card">
+            <p className="failure-card-meta">
+              {sourceDisplayNameLoose(failure.source_name)}
+            </p>
             <h3 className="failure-card-title">
               <a
                 href={failure.article_url}
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                {sourceDisplayNameLoose(failure.source_name)}
+                {failure.article_title?.trim() || failure.article_url}
               </a>
             </h3>
             <p className="failure-card-message">

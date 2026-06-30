@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.7] - 2026-06-30
+
+### Added
+
+- **Ingestion failure banner — Add / Ignore / Dismiss** — [`failure-banner.tsx`](apps/web/src/components/failure-banner.tsx) shows source meta, article title (or URL fallback), and compact action buttons; [`failure-actions.tsx`](apps/web/src/components/failure-actions.tsx) wires **Add** (validation whitelist), **Ignore** (substring suppress), **Dismiss** (clear log, retry next run)
+- [`POST /api/whitelist-validation`](apps/web/src/app/api/whitelist-validation/route.ts) — upserts `validation_whitelist` by article fingerprint and removes the matching `ingestion_log` row (service role; mirrors ignore route)
+- **Validation whitelist** — analysts can **Add** a failed URL so the next GHA run still fetches it but skips voluntary content-quality checks (word count, HTML residue, lexical diversity); bot-protection checks always run ([`validation.py`](src/reader/validation.py) `skip_voluntary_checks`, [`scrapers.py`](src/reader/scrapers.py) `_validation_bypass`)
+- **`article_title` on ingestion failures** — captured when logging failures in scrapers; synced to Supabase and shown in the dashboard banner
+- Supabase migrations [`008_ingestion_log_article_title.sql`](supabase/migrations/008_ingestion_log_article_title.sql), [`009_validation_whitelist.sql`](supabase/migrations/009_validation_whitelist.sql)
+- SQLite schema v6 — `ingestion_log.article_title`, `validation_whitelist` table; hydrate/sync in [`supabase_sync.py`](src/reader/supabase_sync.py)
+- [`apps/web/src/lib/fingerprint.ts`](apps/web/src/lib/fingerprint.ts) — `itemFingerprint()` matching Python `item_fingerprint`
+- Tests — `article_title` and whitelist in [`tests/test_storage.py`](tests/test_storage.py); `skip_voluntary_checks` in [`tests/test_validation.py`](tests/test_validation.py)
+
+### Changed
+
+- Failure banner actions — **Ignore URL** renamed **Ignore**; button styling uses green (Add), red (Ignore), blue (Dismiss) outlined pills ([`globals.css`](apps/web/src/app/globals.css))
+- [`docs/labeling-dashboard.md`](docs/labeling-dashboard.md) — documents Add / Ignore / Dismiss semantics
+
+### Notes
+
+- **Supabase:** run migrations **008** then **009** before deploying the updated dashboard (enable RLS when prompted for 009).
+
 ## [2.1.6] - 2026-06-30
 
 ### Changed

@@ -87,6 +87,7 @@ class SupabaseSyncTests(unittest.TestCase):
                 }
             ],
             [],
+            [],
         ]
 
         with connect(self.database) as connection:

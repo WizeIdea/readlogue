@@ -22,6 +22,7 @@ export type IngestionFailure = {
   source_name: string;
   article_url: string;
   article_fingerprint: string;
+  article_title: string | null;
   message: string;
   failure_count: number;
 };

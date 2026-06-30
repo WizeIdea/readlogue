@@ -3,8 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button } from "@/components/ui/button";
-
 type Props = {
   articleUrl: string;
   fingerprint: string;
@@ -12,7 +10,7 @@ type Props = {
 
 export function FailureActions({ articleUrl, fingerprint }: Props) {
   const router = useRouter();
-  const [pending, setPending] = useState<"ignore" | "dismiss" | null>(null);
+  const [pending, setPending] = useState<"add" | "ignore" | "dismiss" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function post(path: string, body: object) {
@@ -31,10 +29,26 @@ export function FailureActions({ articleUrl, fingerprint }: Props) {
 
   return (
     <div className="failure-actions">
-      <Button
+      <button
         type="button"
-        size="sm"
-        variant="outline"
+        className="failure-action-btn failure-action-btn--add"
+        disabled={pending !== null}
+        onClick={async () => {
+          setPending("add");
+          try {
+            await post("/api/whitelist-validation", { articleUrl });
+          } catch (err) {
+            setError(err instanceof Error ? err.message : "Add failed");
+          } finally {
+            setPending(null);
+          }
+        }}
+      >
+        {pending === "add" ? "Adding…" : "Add"}
+      </button>
+      <button
+        type="button"
+        className="failure-action-btn failure-action-btn--ignore"
         disabled={pending !== null}
         onClick={async () => {
           setPending("ignore");
@@ -47,12 +61,11 @@ export function FailureActions({ articleUrl, fingerprint }: Props) {
           }
         }}
       >
-        {pending === "ignore" ? "Ignoring…" : "Ignore URL"}
-      </Button>
-      <Button
+        {pending === "ignore" ? "Ignoring…" : "Ignore"}
+      </button>
+      <button
         type="button"
-        size="sm"
-        variant="outline"
+        className="failure-action-btn failure-action-btn--dismiss"
         disabled={pending !== null}
         onClick={async () => {
           setPending("dismiss");
@@ -66,7 +79,7 @@ export function FailureActions({ articleUrl, fingerprint }: Props) {
         }}
       >
         {pending === "dismiss" ? "Dismissing…" : "Dismiss"}
-      </Button>
+      </button>
       {error && <span className="form-error">{error}</span>}
     </div>
   );

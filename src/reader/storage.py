@@ -12,7 +12,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 
 
 def utc_now() -> str:
@@ -196,11 +196,23 @@ def _run_migrations(connection: sqlite3.Connection) -> None:
         (2, "items", "raw_html_path", "text"),
         (4, "items", "hero_image_url", "text"),
         (5, "items", "curation", "text not null default '{}'"),
+        (6, "ingestion_log", "article_title", "text"),
     ]
 
     for version, table_name, column_name, column_def in migrations:
         if version > current_version:
             _ensure_column(connection, table_name, column_name, column_def)
+
+    if current_version < 6:
+        connection.execute(
+            """
+            create table if not exists validation_whitelist (
+                article_fingerprint text primary key,
+                article_url text not null,
+                created_at text not null default current_timestamp
+            )
+            """
+        )
 
     if current_version < SCHEMA_VERSION:
         if current_version < 3:
@@ -523,6 +535,7 @@ def log_ingestion_failure(
     message: str,
     severity: str = "warning",
     *,
+    article_title: str | None = None,
     stats: IngestStats | None = None,
 ) -> None:
     now = utc_now()
@@ -534,18 +547,26 @@ def log_ingestion_failure(
         """
         insert into ingestion_log(
             source_name, article_url, article_fingerprint, severity, message,
-            failure_count, created_at, last_seen_at
-        ) values (?, ?, ?, ?, ?, 1, ?, ?)
+            article_title, failure_count, created_at, last_seen_at
+        ) values (?, ?, ?, ?, ?, ?, 1, ?, ?)
         on conflict(article_fingerprint) do update set
             source_name = excluded.source_name,
             article_url = excluded.article_url,
             severity = excluded.severity,
             message = excluded.message,
+            article_title = coalesce(nullif(excluded.article_title, ''), article_title),
             failure_count = failure_count + 1,
             last_seen_at = excluded.last_seen_at
         """,
-        (source_name, article_url, fingerprint, severity, message, now, now),
+        (source_name, article_url, fingerprint, severity, message, article_title, now, now),
     )
+
+
+def validation_whitelist_fingerprints(connection: sqlite3.Connection) -> set[str]:
+    rows = connection.execute(
+        "select article_fingerprint from validation_whitelist"
+    ).fetchall()
+    return {str(row["article_fingerprint"]) for row in rows}
 
 
 def known_failed_fingerprints(

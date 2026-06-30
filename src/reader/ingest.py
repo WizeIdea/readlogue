@@ -5,7 +5,7 @@ from pathlib import Path
 
 from reader.config import load_config
 from reader.scrapers import SOURCE_HANDLERS, build_url_ignore_checker
-from reader.storage import IngestStats, connect, initialize, known_failed_fingerprints, upsert_article
+from reader.storage import IngestStats, connect, initialize, known_failed_fingerprints, upsert_article, validation_whitelist_fingerprints
 from reader.supabase_sync import (
     fetch_runtime_ignores,
     hydrate_sqlite_from_supabase,
@@ -30,6 +30,7 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
             min_failures=config.auto_skip_failure_threshold,
         )
         remote_ignored_urls, remote_ignored_substrings = fetch_runtime_ignores()
+        validation_whitelist = validation_whitelist_fingerprints(connection)
         for source in config.sources:
             if not source.enabled:
                 continue
@@ -54,6 +55,7 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
                     stats=stats,
                     url_is_ignored=url_is_ignored,
                     known_failed_fingerprints=failed_fingerprints,
+                    validation_whitelist=validation_whitelist,
                 )
             except Exception as exc:
                 logger.error("Failed to ingest source '%s': %s", source.name, exc)

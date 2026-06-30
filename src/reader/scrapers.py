@@ -106,12 +106,21 @@ def _content_clean_rules_for_source(source_config) -> ContentCleanRules:
     return load_content_clean_rules(source_config.settings)
 
 
+def _validation_bypass(article_url: str, validation_whitelist: set[str] | None) -> bool:
+    if not validation_whitelist:
+        return False
+    from reader.storage import item_fingerprint
+
+    return item_fingerprint(article_url) in validation_whitelist
+
+
 def _record_from_rss_entry(
     connection,
     raw,
     source_config,
     *,
     stats: IngestStats | None = None,
+    validation_whitelist: set[str] | None = None,
 ) -> ArticleRecord | None:
     """Build an ArticleRecord from RSS feed body only (no article-page fetch)."""
     import logging
@@ -125,7 +134,13 @@ def _record_from_rss_entry(
 
     title = raw.title or raw.url
     content = raw.content or raw.summary or ""
-    quality = validate_content(title, content, raw.url, source_config.name)
+    quality = validate_content(
+        title,
+        content,
+        raw.url,
+        source_config.name,
+        skip_voluntary_checks=_validation_bypass(raw.url, validation_whitelist),
+    )
     if not quality.is_valid:
         if stats is not None:
             stats.validation_failed += 1
@@ -134,6 +149,7 @@ def _record_from_rss_entry(
             source_config.name,
             raw.url,
             quality.reason or "unknown validation failure",
+            article_title=title if title != raw.url else None,
             stats=stats,
         )
         logger.warning(
@@ -172,6 +188,7 @@ def _handle_rss_source(
     stats: IngestStats | None = None,
     url_is_ignored: Callable[[str], bool] | None = None,
     known_failed_fingerprints: set[str] | None = None,
+    validation_whitelist: set[str] | None = None,
 ) -> list:
     """Handle RSS sources: discover from feed, then fetch full article pages."""
     import logging
@@ -243,12 +260,14 @@ def _handle_rss_source(
                     raw,
                     source_config,
                     stats=stats,
+                    validation_whitelist=validation_whitelist,
                 )
             else:
                 record = _fetch_article(
                     connection, raw.url, source_config.name, source_config.url, None, profile,
                     raw_html_dir=raw_html_dir, source_scraper=source_config.scraper,
                     fetcher=fetcher, stats=stats,
+                    validation_whitelist=validation_whitelist,
                     content_clean_rules=(
                         profile.content_clean if profile is not None else _content_clean_rules_for_source(source_config)
                     ),
@@ -262,7 +281,14 @@ def _handle_rss_source(
                 source_config.name,
                 exc,
             )
-            log_ingestion_failure(connection, source_config.name, raw.url, str(exc), stats=stats)
+            log_ingestion_failure(
+                connection,
+                source_config.name,
+                raw.url,
+                str(exc),
+                article_title=raw.title or None,
+                stats=stats,
+            )
             if stats is not None:
                 stats.validation_failed += 1
             continue
@@ -275,7 +301,14 @@ def _handle_rss_source(
                 source_config.name,
                 exc,
             )
-            log_ingestion_failure(connection, source_config.name, raw.url, str(exc), stats=stats)
+            log_ingestion_failure(
+                connection,
+                source_config.name,
+                raw.url,
+                str(exc),
+                article_title=raw.title or None,
+                stats=stats,
+            )
             if stats is not None:
                 stats.validation_failed += 1
             continue
@@ -306,6 +339,7 @@ def _handle_listing_source(
     stats: IngestStats | None = None,
     url_is_ignored: Callable[[str], bool] | None = None,
     known_failed_fingerprints: set[str] | None = None,
+    validation_whitelist: set[str] | None = None,
 ) -> list:
     """Handle listing sources: discover links, then fetch full article pages."""
     from reader.config import load_listing_profile
@@ -358,6 +392,7 @@ def _handle_listing_source(
         record = _fetch_article(
             connection, article_url, source_config.name, source_config.url, listing_article, profile,
             raw_html_dir=raw_html_dir, source_scraper=source_config.scraper, stats=stats,
+            validation_whitelist=validation_whitelist,
         )
         if record is None:
             continue
@@ -377,6 +412,7 @@ def _handle_api_tag_source(
     stats: IngestStats | None = None,
     url_is_ignored: Callable[[str], bool] | None = None,
     known_failed_fingerprints: set[str] | None = None,
+    validation_whitelist: set[str] | None = None,
 ) -> list:
     """Handle API tag sources (e.g., HuggingFace blog tags)."""
     from reader.config import load_listing_profile
@@ -414,6 +450,7 @@ def _handle_api_tag_source(
         record = _fetch_article(
             connection, article_url, source_config.name, source_config.url, listing_article, profile,
             raw_html_dir=raw_html_dir, source_scraper=source_config.scraper, stats=stats,
+            validation_whitelist=validation_whitelist,
         )
         if record is None:
             continue
@@ -433,6 +470,7 @@ def _handle_direct_source(
     stats: IngestStats | None = None,
     url_is_ignored: Callable[[str], bool] | None = None,
     known_failed_fingerprints: set[str] | None = None,
+    validation_whitelist: set[str] | None = None,
 ) -> list:
     """Handle direct URL sources: fetch a single article page."""
     import logging
@@ -470,7 +508,13 @@ def _handle_direct_source(
         fetcher=source_config.scraper,
         content_clean=_content_clean_rules_for_source(source_config),
     )
-    quality = validate_content(title, content, source_config.url, source_config.name)
+    quality = validate_content(
+        title,
+        content,
+        source_config.url,
+        source_config.name,
+        skip_voluntary_checks=_validation_bypass(source_config.url, validation_whitelist),
+    )
     if not quality.is_valid:
         if stats is not None:
             stats.validation_failed += 1
@@ -479,6 +523,7 @@ def _handle_direct_source(
             source_config.name,
             source_config.url,
             quality.reason or "unknown validation failure",
+            article_title=title or None,
             stats=stats,
         )
         logger.warning("Skipping article %s from '%s': %s", source_config.url, source_config.name, quality.reason)
@@ -524,6 +569,7 @@ def _fetch_article(
     fetcher: str = "requests",
     stats: IngestStats | None = None,
     content_clean_rules: ContentCleanRules | None = None,
+    validation_whitelist: set[str] | None = None,
 ) -> ArticleRecord | None:
     """Fetch an article page, validate content quality, and return an ArticleRecord
     or None if the article fails validation."""
@@ -561,7 +607,13 @@ def _fetch_article(
     from reader.storage import log_ingestion_failure, resolve_raw_html_path
     from reader.validation import validate_content
 
-    quality = validate_content(title, content, article_url, source_name)
+    quality = validate_content(
+        title,
+        content,
+        article_url,
+        source_name,
+        skip_voluntary_checks=_validation_bypass(article_url, validation_whitelist),
+    )
     elapsed = time.monotonic() - fetch_started
     logger.info(
         "Fetched %s in %.1fs (%d words, accepted=%s)",
@@ -578,11 +630,13 @@ def _fetch_article(
             "Content extraction details for %s:\n  Title: %s\n  Content length: %d chars\n  Content preview: %s",
             article_url, title, len(content), content[:200] if content else "(empty)"
         )
+        listing_title = listing_article.title if listing_article is not None else None
         log_ingestion_failure(
             connection,
             source_name,
             article_url,
             quality.reason or "unknown validation failure",
+            article_title=title or listing_title,
             stats=stats,
         )
         logger.warning("Skipping article %s from '%s': %s", article_url, source_name, quality.reason)
