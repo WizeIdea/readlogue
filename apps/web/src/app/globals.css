@@ -164,6 +164,64 @@ a:hover {
   color: var(--foreground);
 }
 
+.filter-search {
+  margin-bottom: var(--space-4);
+}
+
+.filter-search-label {
+  display: block;
+  margin-bottom: var(--space-1);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted-foreground);
+}
+
+.filter-search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.filter-search-input {
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--input);
+  border-radius: var(--radius);
+  background: var(--background);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.filter-search-input:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.filter-search-clear {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--muted-foreground);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1.125rem;
+  line-height: 1;
+}
+
+.filter-search-clear:hover {
+  background: var(--accent);
+  color: var(--foreground);
+}
+
 .filter-section {
   margin-bottom: var(--space-4);
 }
@@ -587,7 +645,7 @@ a:hover {
 .curation-score-btn--selected {
   opacity: 1;
   border-color: var(--border);
-  background: var(--accent);
+  background: transparent;
 }
 
 .curation-score-btn--selected.curation-score-btn--1 {

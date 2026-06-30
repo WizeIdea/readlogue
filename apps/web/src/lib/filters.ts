@@ -12,6 +12,7 @@ export type ItemFilters = {
   includeUncategorized?: boolean;
   sources?: string[];
   read?: ReadFilter[];
+  q?: string;
 };
 
 export type FilterSearchParams = {
@@ -19,13 +20,28 @@ export type FilterSearchParams = {
   categories?: string;
   sources?: string;
   read?: string;
+  q?: string;
 };
 
 export type FilterSelection = {
   categories: string[];
   sources: string[];
   read: ReadFilter[];
+  q?: string;
 };
+
+/** Split search input into title tokens (any-word OR match). */
+export function tokenizeTitleSearch(query: string): string[] {
+  return query
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+/** Escape special characters for Postgres ILIKE patterns. */
+export function escapeIlikePattern(value: string): string {
+  return value.replace(/[%_\\]/g, "\\$&");
+}
 
 export function firstSearchParam(
   value: string | string[] | undefined,
@@ -68,8 +84,15 @@ export function parseItemFilters(
   const hasCategoryFilter = params.categories !== undefined;
   const hasSourceFilter = params.sources !== undefined;
   const hasReadFilter = params.read !== undefined;
+  const trimmedQ = params.q?.trim() ?? "";
+  const hasSearchFilter = trimmedQ.length > 0;
 
-  if (!hasCategoryFilter && !hasSourceFilter && !hasReadFilter) {
+  if (
+    !hasCategoryFilter &&
+    !hasSourceFilter &&
+    !hasReadFilter &&
+    !hasSearchFilter
+  ) {
     return undefined;
   }
 
@@ -87,6 +110,10 @@ export function parseItemFilters(
 
   if (hasReadFilter) {
     filters.read = selectedFromParam(params.read, READ_FILTERS);
+  }
+
+  if (hasSearchFilter) {
+    filters.q = trimmedQ;
   }
 
   return filters;
@@ -111,11 +138,17 @@ export function buildFilterQuery(options: {
   categories?: string[];
   sources?: string[];
   read?: ReadFilter[];
+  q?: string;
 }): string {
   const parts: string[] = [];
 
   if (options.page !== undefined && options.page > 0) {
     parts.push(`page=${options.page}`);
+  }
+
+  const trimmedQ = options.q?.trim();
+  if (trimmedQ) {
+    parts.push(`q=${encodeURIComponent(trimmedQ)}`);
   }
 
   const allCategories = [...CATEGORY_FILTERS];
@@ -154,6 +187,7 @@ export function hrefWithFilters(
     categories: selection.categories,
     sources: selection.sources,
     read: selection.read,
+    q: selection.q,
   });
   return query ? `/?${query}` : page === 0 ? "/" : `/?page=${page}`;
 }

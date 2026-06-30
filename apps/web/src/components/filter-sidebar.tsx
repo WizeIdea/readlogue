@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { signOut } from "@/app/actions";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,13 @@ export function FilterSidebar() {
   const categoriesParam = searchParams.get("categories") ?? undefined;
   const sourcesParam = searchParams.get("sources") ?? undefined;
   const readParam = searchParams.get("read") ?? undefined;
+  const qParam = searchParams.get("q") ?? "";
+
+  const [searchDraft, setSearchDraft] = useState(qParam);
+
+  useEffect(() => {
+    setSearchDraft(qParam);
+  }, [qParam]);
 
   const selectedCategories = selectedFromParam(
     categoriesParam,
@@ -41,11 +49,31 @@ export function FilterSidebar() {
     categories: string[],
     sources: string[],
     read: ReadFilter[],
+    q?: string,
   ) {
-    const query = buildFilterQuery({ page: 0, categories, sources, read });
+    const trimmedQ = (q ?? searchDraft).trim();
+    const query = buildFilterQuery({
+      page: 0,
+      categories,
+      sources,
+      read,
+      q: trimmedQ || undefined,
+    });
     const href = query ? `${pathname}?${query}` : pathname;
     router.push(href);
   }
+
+  useEffect(() => {
+    if (searchDraft === qParam) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      navigate(selectedCategories, selectedSources, selectedRead, searchDraft);
+    }, 300);
+    return () => window.clearTimeout(timer);
+    // Only debounce typing; filter pill clicks call navigate() directly.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- selected* read from latest closure on timer fire
+  }, [searchDraft, qParam]);
 
   function toggleCategory(category: (typeof CATEGORY_FILTERS)[number]) {
     navigate(
@@ -85,6 +113,33 @@ export function FilterSidebar() {
           />
           <span className="filter-sidebar-title">ReadLogue</span>
         </Link>
+      </div>
+
+      <div className="filter-search">
+        <label className="filter-search-label" htmlFor="filter-title-search">
+          Search titles
+        </label>
+        <div className="filter-search-row">
+          <input
+            id="filter-title-search"
+            type="search"
+            className="filter-search-input"
+            placeholder="Search titles…"
+            aria-label="Search titles"
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+          />
+          {searchDraft.trim() ? (
+            <button
+              type="button"
+              className="filter-search-clear"
+              aria-label="Clear search"
+              onClick={() => setSearchDraft("")}
+            >
+              ×
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <FilterSection

@@ -26,6 +26,7 @@ export default async function HomePage({ searchParams }: Props) {
     categories: firstSearchParam(raw.categories),
     sources: firstSearchParam(raw.sources),
     read: firstSearchParam(raw.read),
+    q: firstSearchParam(raw.q),
   };
   const filters = parseItemFilters(params);
   const filtered = filters !== undefined;
@@ -35,6 +36,7 @@ export default async function HomePage({ searchParams }: Props) {
     categories: selectedFromParam(params.categories, CATEGORY_FILTERS),
     sources: selectedFromParam(params.sources, SOURCES),
     read: selectedFromParam(params.read, READ_FILTERS),
+    q: params.q?.trim() || undefined,
   };
 
   const supabase = await createClient();

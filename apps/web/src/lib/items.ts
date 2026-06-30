@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { ItemFilters } from "@/lib/filters";
+import { escapeIlikePattern, tokenizeTitleSearch } from "@/lib/filters";
 import type { IngestionFailure, ItemRow } from "@/lib/types";
 import { PAGE_SIZE } from "@/lib/types";
 import { parseCuration, type CurationV1 } from "@/lib/curation";
@@ -109,6 +110,16 @@ export async function listItemsPage(
       query = query.is("read_at", null);
     } else if (includeRead && !includeUnread) {
       query = query.not("read_at", "is", null);
+    }
+  }
+
+  if (filters?.q) {
+    const tokens = tokenizeTitleSearch(filters.q);
+    if (tokens.length > 0) {
+      const orClause = tokens
+        .map((token) => `title.ilike.%${escapeIlikePattern(token)}%`)
+        .join(",");
+      query = query.or(orClause);
     }
   }
 

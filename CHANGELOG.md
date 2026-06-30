@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.4] - 2026-06-29
+
+### Added
+
+- Sidebar **title search** — `q` URL param; case-insensitive match if **any** word appears in `items.title` (server-side `ILIKE` via Supabase; fine for current ~500 rows)
+- Search field in [`filter-sidebar.tsx`](apps/web/src/components/filter-sidebar.tsx) below logo, above Read status; debounced URL update preserves category/source/read filters
+
 ## [2.1.3] - 2026-06-29
 
 ### Changed

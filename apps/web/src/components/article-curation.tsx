@@ -74,7 +74,7 @@ export function CurationScores({ curation, onPatch }: CurationProps) {
                       })
                     }
                   >
-                    <Icon size={18} strokeWidth={2} aria-hidden />
+                    <Icon size={20} strokeWidth={2} aria-hidden />
                   </button>
                 );
               })}
