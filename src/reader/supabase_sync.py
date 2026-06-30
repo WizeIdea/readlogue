@@ -6,6 +6,7 @@ import sqlite3
 from typing import Any
 
 from reader.curation import parse_curation_json, serialize_curation
+from reader.storage import SyncDelta
 
 logger = logging.getLogger(__name__)
 
@@ -160,106 +161,122 @@ def hydrate_sqlite_from_supabase(connection: sqlite3.Connection) -> None:
             )
 
 
-def _source_name_map(connection: sqlite3.Connection) -> dict[str, int]:
-    rows = connection.execute(
-        """
-        select sources.name, sources.id
-        from sources
-        """
-    ).fetchall()
-    return {str(row["name"]): int(row["id"]) for row in rows}
 
-
-def sync_sqlite_to_supabase(connection: sqlite3.Connection) -> None:
-    """Push scratch SQLite state to Supabase after ingest."""
+def sync_sqlite_to_supabase(connection: sqlite3.Connection, delta: SyncDelta) -> None:
+    """Push rows changed during ingest from scratch SQLite to Supabase."""
     if not is_supabase_configured():
         return
 
     client = _client()
 
-    source_rows = connection.execute("select name, source_url, scraper, created_at from sources").fetchall()
-    for row in source_rows:
-        client.table("sources").upsert(
-            {
-                "name": row["name"],
-                "source_url": row["source_url"],
-                "scraper": row["scraper"],
-                "created_at": row["created_at"],
-            },
-            on_conflict="name",
-        ).execute()
+    total_sources = int(connection.execute("select count(*) from sources").fetchone()[0])
+    total_items = int(connection.execute("select count(*) from items").fetchone()[0])
+    total_failures = int(connection.execute("select count(*) from ingestion_log").fetchone()[0])
 
-    remote_sources = _fetch_all("sources", "id,name")
+    source_rows: list[sqlite3.Row] = []
+    if delta.source_names:
+        placeholders = ", ".join("?" for _ in delta.source_names)
+        source_rows = connection.execute(
+            f"""
+            select name, source_url, scraper, created_at
+            from sources
+            where name in ({placeholders})
+            """,
+            tuple(delta.source_names),
+        ).fetchall()
+        for row in source_rows:
+            client.table("sources").upsert(
+                {
+                    "name": row["name"],
+                    "source_url": row["source_url"],
+                    "scraper": row["scraper"],
+                    "created_at": row["created_at"],
+                },
+                on_conflict="name",
+            ).execute()
+
+    remote_sources = _fetch_all("sources", "id,name") if delta.source_names or delta.item_fingerprints else []
     name_to_id = {str(source["name"]): int(source["id"]) for source in remote_sources}
 
-    item_rows = connection.execute(
-        """
-        select items.*, sources.name as source_name
-        from items
-        join sources on sources.id = items.source_id
-        """
-    ).fetchall()
-    for row in item_rows:
-        source_id = name_to_id.get(str(row["source_name"]))
-        if source_id is None:
-            logger.warning("Skipping item sync; unknown source %s", row["source_name"])
-            continue
-        client.table("items").upsert(
-            {
-                "source_id": source_id,
-                "fingerprint": row["fingerprint"],
-                "url": row["url"],
-                "title": row["title"],
-                "summary": row["summary"],
-                "content": row["content"],
-                "author": row["author"],
-                "published_at": row["published_at"],
-                "source_category": row["source_category"],
-                "category": row["category"],
-                "read_at": row["read_at"],
-                "rating": row["rating"],
-                "raw_html_path": row["raw_html_path"],
-                "hero_image_url": row["hero_image_url"],
-                "curation": parse_curation_json(row["curation"] if "curation" in row.keys() else "{}"),
-                "created_at": row["created_at"],
-                "updated_at": row["updated_at"],
-            },
-            on_conflict="fingerprint",
-        ).execute()
+    item_rows: list[sqlite3.Row] = []
+    if delta.item_fingerprints:
+        placeholders = ", ".join("?" for _ in delta.item_fingerprints)
+        item_rows = connection.execute(
+            f"""
+            select items.*, sources.name as source_name
+            from items
+            join sources on sources.id = items.source_id
+            where items.fingerprint in ({placeholders})
+            """,
+            tuple(delta.item_fingerprints),
+        ).fetchall()
+        for row in item_rows:
+            source_id = name_to_id.get(str(row["source_name"]))
+            if source_id is None:
+                logger.warning("Skipping item sync; unknown source %s", row["source_name"])
+                continue
+            client.table("items").upsert(
+                {
+                    "source_id": source_id,
+                    "fingerprint": row["fingerprint"],
+                    "url": row["url"],
+                    "title": row["title"],
+                    "summary": row["summary"],
+                    "content": row["content"],
+                    "author": row["author"],
+                    "published_at": row["published_at"],
+                    "source_category": row["source_category"],
+                    "category": row["category"],
+                    "read_at": row["read_at"],
+                    "rating": row["rating"],
+                    "raw_html_path": row["raw_html_path"],
+                    "hero_image_url": row["hero_image_url"],
+                    "curation": parse_curation_json(row["curation"] if "curation" in row.keys() else "{}"),
+                    "created_at": row["created_at"],
+                    "updated_at": row["updated_at"],
+                },
+                on_conflict="fingerprint",
+            ).execute()
 
-    failure_rows = connection.execute(
-        """
-        select source_name, article_url, article_fingerprint, severity, message,
-               failure_count, created_at, last_seen_at
-        from ingestion_log
-        """
-    ).fetchall()
-    sqlite_failure_fps = {str(row["article_fingerprint"]) for row in failure_rows}
+    failure_rows: list[sqlite3.Row] = []
+    if delta.failure_fingerprints:
+        placeholders = ", ".join("?" for _ in delta.failure_fingerprints)
+        failure_rows = connection.execute(
+            f"""
+            select source_name, article_url, article_fingerprint, severity, message,
+                   failure_count, created_at, last_seen_at
+            from ingestion_log
+            where article_fingerprint in ({placeholders})
+            """,
+            tuple(delta.failure_fingerprints),
+        ).fetchall()
+        for row in failure_rows:
+            client.table("ingestion_log").upsert(
+                {
+                    "source_name": row["source_name"],
+                    "article_url": row["article_url"],
+                    "article_fingerprint": row["article_fingerprint"],
+                    "severity": row["severity"],
+                    "message": row["message"],
+                    "failure_count": row["failure_count"],
+                    "created_at": row["created_at"],
+                    "last_seen_at": row["last_seen_at"],
+                },
+                on_conflict="article_fingerprint",
+            ).execute()
 
-    remote_failures = _fetch_all("ingestion_log", "article_fingerprint")
-    for remote in remote_failures:
-        fingerprint = str(remote["article_fingerprint"])
-        if fingerprint not in sqlite_failure_fps:
-            client.table("ingestion_log").delete().eq("article_fingerprint", fingerprint).execute()
-
-    for row in failure_rows:
-        client.table("ingestion_log").upsert(
-            {
-                "source_name": row["source_name"],
-                "article_url": row["article_url"],
-                "article_fingerprint": row["article_fingerprint"],
-                "severity": row["severity"],
-                "message": row["message"],
-                "failure_count": row["failure_count"],
-                "created_at": row["created_at"],
-                "last_seen_at": row["last_seen_at"],
-            },
-            on_conflict="article_fingerprint",
-        ).execute()
+    failures_deleted = 0
+    for fingerprint in delta.deleted_failure_fingerprints:
+        client.table("ingestion_log").delete().eq("article_fingerprint", fingerprint).execute()
+        failures_deleted += 1
 
     logger.info(
-        "Synced scratch SQLite to Supabase: sources=%d items=%d ingestion_log=%d",
+        "Synced to Supabase: sources=%d/%d items=%d/%d ingestion_log=%d/%d (failures deleted=%d)",
         len(source_rows),
+        total_sources,
         len(item_rows),
+        total_items,
         len(failure_rows),
+        total_failures,
+        failures_deleted,
     )

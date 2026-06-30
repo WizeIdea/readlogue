@@ -6,7 +6,17 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from reader.storage import ArticleRecord, connect, initialize, upsert_article
+from reader.storage import (
+    ArticleRecord,
+    IngestStats,
+    SyncDelta,
+    clear_ingestion_failure,
+    connect,
+    initialize,
+    item_fingerprint,
+    log_ingestion_failure,
+    upsert_article,
+)
 from reader.supabase_sync import (
     fetch_runtime_ignores,
     hydrate_sqlite_from_supabase,
@@ -89,6 +99,108 @@ class SupabaseSyncTests(unittest.TestCase):
     @patch("reader.supabase_sync._fetch_all")
     @patch("reader.supabase_sync._client")
     @patch("reader.supabase_sync.is_supabase_configured", return_value=True)
+    def test_sync_empty_delta_makes_no_upserts(
+        self,
+        _configured: MagicMock,
+        client_factory: MagicMock,
+        fetch_all: MagicMock,
+    ) -> None:
+        client = MagicMock()
+        table = MagicMock()
+        client.table.return_value = table
+        table.upsert.return_value = table
+        table.delete.return_value = table
+        table.eq.return_value = table
+        table.execute.return_value = MagicMock(data=[])
+        client_factory.return_value = client
+
+        with connect(self.database) as connection:
+            sync_sqlite_to_supabase(connection, SyncDelta())
+
+        table.upsert.assert_not_called()
+        table.delete.assert_not_called()
+        fetch_all.assert_not_called()
+
+    @patch("reader.supabase_sync._fetch_all")
+    @patch("reader.supabase_sync._client")
+    @patch("reader.supabase_sync.is_supabase_configured", return_value=True)
+    def test_sync_upserts_dirty_rows_only(
+        self,
+        _configured: MagicMock,
+        client_factory: MagicMock,
+        fetch_all: MagicMock,
+    ) -> None:
+        client = MagicMock()
+        table = MagicMock()
+        client.table.return_value = table
+        table.upsert.return_value = table
+        table.delete.return_value = table
+        table.eq.return_value = table
+        table.execute.return_value = MagicMock(data=[])
+        client_factory.return_value = client
+        fetch_all.return_value = [{"id": 99, "name": "source-a"}]
+
+        stats = IngestStats()
+        with connect(self.database) as connection:
+            article = ArticleRecord(
+                source_name="source-a",
+                source_url="https://example.com/feed",
+                url="https://example.com/post-1",
+                title="Title",
+                summary="Summary",
+                content="Body",
+                published_at="2026-06-27T00:00:00+00:00",
+            )
+            upsert_article(connection, article, stats=stats)
+            sync_sqlite_to_supabase(connection, stats.sync_delta)
+
+        self.assertEqual(table.upsert.call_count, 2)
+        client.table.assert_any_call("sources")
+        client.table.assert_any_call("items")
+
+    @patch("reader.supabase_sync._fetch_all")
+    @patch("reader.supabase_sync._client")
+    @patch("reader.supabase_sync.is_supabase_configured", return_value=True)
+    def test_sync_failure_add_and_delete(
+        self,
+        _configured: MagicMock,
+        client_factory: MagicMock,
+        _fetch_all: MagicMock,
+    ) -> None:
+        client = MagicMock()
+        table = MagicMock()
+        client.table.return_value = table
+        table.upsert.return_value = table
+        table.delete.return_value = table
+        table.eq.return_value = table
+        table.execute.return_value = MagicMock(data=[])
+        client_factory.return_value = client
+
+        url = "https://example.com/bad"
+        fingerprint = item_fingerprint(url)
+        stats = IngestStats()
+
+        with connect(self.database) as connection:
+            log_ingestion_failure(connection, "source-a", url, "too short", stats=stats)
+            sync_sqlite_to_supabase(connection, stats.sync_delta)
+
+        client.table.assert_any_call("ingestion_log")
+        table.upsert.assert_called_once()
+        table.delete.assert_not_called()
+
+        table.reset_mock()
+        stats = IngestStats()
+        with connect(self.database) as connection:
+            clear_ingestion_failure(connection, url, stats=stats)
+            sync_sqlite_to_supabase(connection, stats.sync_delta)
+
+        table.upsert.assert_not_called()
+        table.delete.assert_called_once()
+        table.eq.assert_called_once_with("article_fingerprint", fingerprint)
+
+    @patch("reader.supabase_sync._fetch_all")
+    @patch("reader.supabase_sync._client")
+    @patch("reader.supabase_sync.is_supabase_configured", return_value=True)
     def test_sync_upserts_items(
         self,
         _configured: MagicMock,
@@ -105,11 +217,9 @@ class SupabaseSyncTests(unittest.TestCase):
         table.eq.return_value = table
         table.execute.return_value = MagicMock(data=[])
         client_factory.return_value = client
-        fetch_all.side_effect = [
-            [{"id": 99, "name": "source-a"}],
-            [],
-        ]
+        fetch_all.return_value = [{"id": 99, "name": "source-a"}]
 
+        stats = IngestStats()
         with connect(self.database) as connection:
             article = ArticleRecord(
                 source_name="source-a",
@@ -120,8 +230,8 @@ class SupabaseSyncTests(unittest.TestCase):
                 content="Body",
                 published_at="2026-06-27T00:00:00+00:00",
             )
-            upsert_article(connection, article)
-            sync_sqlite_to_supabase(connection)
+            upsert_article(connection, article, stats=stats)
+            sync_sqlite_to_supabase(connection, stats.sync_delta)
 
         client.table.assert_any_call("items")
         table.upsert.assert_called()

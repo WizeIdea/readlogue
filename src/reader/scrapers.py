@@ -134,6 +134,7 @@ def _record_from_rss_entry(
             source_config.name,
             raw.url,
             quality.reason or "unknown validation failure",
+            stats=stats,
         )
         logger.warning(
             "Skipping RSS-only article %s from '%s': %s",
@@ -261,7 +262,7 @@ def _handle_rss_source(
                 source_config.name,
                 exc,
             )
-            log_ingestion_failure(connection, source_config.name, raw.url, str(exc))
+            log_ingestion_failure(connection, source_config.name, raw.url, str(exc), stats=stats)
             if stats is not None:
                 stats.validation_failed += 1
             continue
@@ -274,7 +275,7 @@ def _handle_rss_source(
                 source_config.name,
                 exc,
             )
-            log_ingestion_failure(connection, source_config.name, raw.url, str(exc))
+            log_ingestion_failure(connection, source_config.name, raw.url, str(exc), stats=stats)
             if stats is not None:
                 stats.validation_failed += 1
             continue
@@ -473,7 +474,13 @@ def _handle_direct_source(
     if not quality.is_valid:
         if stats is not None:
             stats.validation_failed += 1
-        log_ingestion_failure(connection, source_config.name, source_config.url, quality.reason or "unknown validation failure")
+        log_ingestion_failure(
+            connection,
+            source_config.name,
+            source_config.url,
+            quality.reason or "unknown validation failure",
+            stats=stats,
+        )
         logger.warning("Skipping article %s from '%s': %s", source_config.url, source_config.name, quality.reason)
         return articles
 
@@ -571,7 +578,13 @@ def _fetch_article(
             "Content extraction details for %s:\n  Title: %s\n  Content length: %d chars\n  Content preview: %s",
             article_url, title, len(content), content[:200] if content else "(empty)"
         )
-        log_ingestion_failure(connection, source_name, article_url, quality.reason or "unknown validation failure")
+        log_ingestion_failure(
+            connection,
+            source_name,
+            article_url,
+            quality.reason or "unknown validation failure",
+            stats=stats,
+        )
         logger.warning("Skipping article %s from '%s': %s", article_url, source_name, quality.reason)
         return None
 

@@ -6,7 +6,7 @@ import json
 import sqlite3
 import uuid
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -26,6 +26,14 @@ def item_fingerprint(url: str) -> str:
 
 
 @dataclass
+class SyncDelta:
+    source_names: set[str] = field(default_factory=set)
+    item_fingerprints: set[str] = field(default_factory=set)
+    failure_fingerprints: set[str] = field(default_factory=set)
+    deleted_failure_fingerprints: set[str] = field(default_factory=set)
+
+
+@dataclass
 class IngestStats:
     skipped_existing: int = 0
     skipped_ignored: int = 0
@@ -35,6 +43,7 @@ class IngestStats:
     html_written: int = 0
     html_reused: int = 0
     new_db_rows: int = 0
+    sync_delta: SyncDelta = field(default_factory=SyncDelta)
 
 
 def existing_raw_html_path(
@@ -288,7 +297,14 @@ def _ensure_column(connection: sqlite3.Connection, table_name: str, column_name:
         connection.execute(f"alter table {table_name} add column {column_name} {column_definition}")
 
 
-def upsert_source(connection: sqlite3.Connection, name: str, source_url: str, scraper: str) -> int:
+def upsert_source(
+    connection: sqlite3.Connection,
+    name: str,
+    source_url: str,
+    scraper: str,
+    *,
+    stats: IngestStats | None = None,
+) -> int:
     connection.execute(
         """
         insert into sources(name, source_url, scraper)
@@ -297,14 +313,29 @@ def upsert_source(connection: sqlite3.Connection, name: str, source_url: str, sc
         """,
         (name, source_url, scraper),
     )
+    if stats is not None:
+        stats.sync_delta.source_names.add(name)
     row = connection.execute("select id from sources where name = ?", (name,)).fetchone()
     assert row is not None
     return int(row["id"])
 
 
-def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bool:
-    source_id = upsert_source(connection, article.source_name, article.source_url, article.source_scraper)
+def upsert_article(
+    connection: sqlite3.Connection,
+    article: ArticleRecord,
+    *,
+    stats: IngestStats | None = None,
+) -> bool:
+    source_id = upsert_source(
+        connection,
+        article.source_name,
+        article.source_url,
+        article.source_scraper,
+        stats=stats,
+    )
     fingerprint = item_fingerprint(article.url)
+    if stats is not None:
+        stats.sync_delta.item_fingerprints.add(fingerprint)
     existing = connection.execute("select id, raw_html_path from items where fingerprint = ?", (fingerprint,)).fetchone()
     if existing is None:
         connection.execute(
@@ -333,7 +364,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
                 utc_now(),
             ),
         )
-        clear_ingestion_failure(connection, article.url)
+        clear_ingestion_failure(connection, article.url, stats=stats)
         return True
 
     connection.execute(
@@ -366,7 +397,7 @@ def upsert_article(connection: sqlite3.Connection, article: ArticleRecord) -> bo
         ),
     )
     if article.content.strip():
-        clear_ingestion_failure(connection, article.url)
+        clear_ingestion_failure(connection, article.url, stats=stats)
     return False
 
 
@@ -469,11 +500,20 @@ def export_jsonl(connection: sqlite3.Connection, path: str | Path) -> Path:
     return output_path
 
 
-def clear_ingestion_failure(connection: sqlite3.Connection, article_url: str) -> None:
+def clear_ingestion_failure(
+    connection: sqlite3.Connection,
+    article_url: str,
+    *,
+    stats: IngestStats | None = None,
+) -> None:
+    fingerprint = item_fingerprint(article_url)
     connection.execute(
         "delete from ingestion_log where article_fingerprint = ?",
-        (item_fingerprint(article_url),),
+        (fingerprint,),
     )
+    if stats is not None:
+        stats.sync_delta.deleted_failure_fingerprints.add(fingerprint)
+        stats.sync_delta.failure_fingerprints.discard(fingerprint)
 
 
 def log_ingestion_failure(
@@ -482,9 +522,14 @@ def log_ingestion_failure(
     article_url: str,
     message: str,
     severity: str = "warning",
+    *,
+    stats: IngestStats | None = None,
 ) -> None:
     now = utc_now()
     fingerprint = item_fingerprint(article_url)
+    if stats is not None:
+        stats.sync_delta.failure_fingerprints.add(fingerprint)
+        stats.sync_delta.deleted_failure_fingerprints.discard(fingerprint)
     connection.execute(
         """
         insert into ingestion_log(

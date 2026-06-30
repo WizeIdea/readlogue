@@ -61,12 +61,12 @@ def ingest(config_path: str | Path, raw_html_dir: str | Path = "data") -> int:
             articles = [a for a in articles if a is not None]
 
             for article in articles:
-                if upsert_article(connection, article):
+                if upsert_article(connection, article, stats=stats):
                     stats.new_db_rows += 1
         connection.commit()
 
         if is_supabase_configured():
-            sync_sqlite_to_supabase(connection)
+            sync_sqlite_to_supabase(connection, stats.sync_delta)
 
     logger.info(
         "Ingestion summary: skipped_existing=%d skipped_ignored=%d skipped_known_failure=%d "

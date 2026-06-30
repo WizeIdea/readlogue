@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.6] - 2026-06-30
+
+### Changed
+
+- GHA ingest **delta Supabase sync** — [`sync_sqlite_to_supabase()`](src/reader/supabase_sync.py) upserts only rows touched during the run (`SyncDelta` on [`IngestStats`](src/reader/storage.py): sources, items, ingestion failures) instead of re-posting all sources/items/failures every workflow run (~20 HTTP calls vs ~580 on a typical run with a few new articles)
+- Sync log reports synced vs total counts, e.g. `Synced to Supabase: sources=2/36 items=3/534 ingestion_log=12/12 (failures deleted=0)`
+
+### Added
+
+- [`tests/test_supabase_sync.py`](tests/test_supabase_sync.py) — delta sync cases (empty delta makes no API calls; dirty items only; failure add/delete)
+
 ## [2.1.5] - 2026-06-30
 
 ### Changed
