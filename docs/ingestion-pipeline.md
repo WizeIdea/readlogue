@@ -36,6 +36,10 @@ Before content reaches the labeling dashboard, the pipeline applies multiple fil
 - **Content validation** — Minimum word count, HTML residue checks, and lexical diversity thresholds reject snippets and boilerplate
 - **Failure logging** — Rejected or unreachable articles are recorded with severity and message; nothing fails silently
 
+Failures surface in the [labeling dashboard](labeling-dashboard.md#operational-visibility) so analysts can ignore recurring noise or dismiss resolved alerts—closing the loop without a separate ops queue.
+
+![Ingestion failure banner in the labeling dashboard](assets/ingestion-failures-banner.png)
+
 When auditors ask *"How do you know you didn't miss something?"*, the answer is twofold: successful articles are archived with provenance, and failures are logged for human review.
 
 ---

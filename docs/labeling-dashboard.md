@@ -12,6 +12,8 @@ Automated ingestion solves the *collection* problem. The labeling dashboard solv
 
 The dashboard is a secure web application where authorised analysts review incoming articles, apply structured labels in seconds, and build a corpus of human decisions that auditors—and algorithms—can trust.
 
+![ReadLogue labeling dashboard — article list with sidebar filters and curation controls](assets/labeling-dashboard.png)
+
 ---
 
 ## Secure Access
@@ -59,6 +61,8 @@ Every interaction writes back to the production database with a timestamp—crea
 ## Operational Visibility
 
 When the ingestion pipeline cannot fetch or validate a source, the dashboard surfaces a **failure banner** at the top of the page. Analysts can:
+
+![Ingestion failure banner — ignore or dismiss alerts from the labeling dashboard](assets/ingestion-failures-banner.png)
 
 - **Ignore** — add a URL pattern to the runtime suppress list (merged into the next ingest run)
 - **Dismiss** — clear the alert without changing pipeline rules

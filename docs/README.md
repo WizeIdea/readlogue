@@ -40,6 +40,8 @@ flowchart LR
 
 **The loop is deliberate:** ingestion writes forward; the dashboard writes human judgment back to the same production index. Nothing is lost in spreadsheets or email threads.
 
+![ReadLogue labeling dashboard](assets/labeling-dashboard.png)
+
 ---
 
 ## Explore the Solution
