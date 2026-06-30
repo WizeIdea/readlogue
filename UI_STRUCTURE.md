@@ -130,5 +130,6 @@ Reads on the dashboard use the session client (`createClient()` in server.ts) ag
 
 ## Related docs
 
+- Portfolio / solution documentation: [`docs/README.md`](docs/README.md)
 - User guide: [README.md — How to use the reader UI](README.md#how-to-use-the-reader-ui)
 - Web setup: [`apps/web/README.md`](apps/web/README.md)

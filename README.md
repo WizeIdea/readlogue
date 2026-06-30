@@ -61,7 +61,17 @@ It provides a single, searchable, and auditable repository of regulatory content
 
 All data flows are automated, auditable, and fully containerized.
 
+### Solution Documentation
+
+Portfolio-facing architecture and workflow documentation (with flowcharts):
+
+- [**Solution overview**](docs/README.md) — end-to-end system diagram and capability summary
+- [**Ingestion pipeline**](docs/ingestion-pipeline.md) — automated collection, validation, and archival
+- [**Labeling dashboard**](docs/labeling-dashboard.md) — analyst review and classification workflow
+- [**Technical specifications**](docs/technical-specifications.md) — stack, security, and deployment topology
+
 ---
+
 
 ## Business Value
 
