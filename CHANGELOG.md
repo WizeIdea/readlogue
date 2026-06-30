@@ -5,12 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.1.4] - 2026-06-29
+## [2.1.5] - 2026-06-30
+
+### Changed
+
+- T/B/G score buttons — unselected icons much dimmer (`opacity: 0.3`, hover `0.5`); selected stays at full brightness (`opacity: 1`) for clearer contrast against coloured Lucide icons
+
+## [2.1.4] - 2026-06-30
 
 ### Added
 
 - Sidebar **title search** — `q` URL param; case-insensitive match if **any** word appears in `items.title` (server-side `ILIKE` via Supabase; fine for current ~500 rows)
 - Search field in [`filter-sidebar.tsx`](apps/web/src/components/filter-sidebar.tsx) below logo, above Read status; debounced URL update preserves category/source/read filters
+- [`filters.test.ts`](apps/web/src/lib/filters.test.ts) — unit tests for `tokenizeTitleSearch`, `escapeIlikePattern`, and `q` URL plumbing; **vitest** in [`apps/web/package.json`](apps/web/package.json)
+
+### Changed
+
+- T/B/G selected state — transparent background (no grey wash over icon colour); icons at 20px
 
 ## [2.1.3] - 2026-06-29
 
@@ -18,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Click-to-read applies to the **summary** only in [`article-row.tsx`](apps/web/src/components/article-row.tsx) — opening the title/URL no longer marks the article read, so you can read externally and still rate/curate before toggling read via the summary
 - T/B/G score buttons use **Lucide sentiment icons** (Angry → Laugh) with MUI-style `--score-1`…`--score-5` colours — replaces Unicode emoji, which ignored CSS `color`
+- Active **type** curation chips (`research`, `news`, etc.) and sidebar **filter pills** use outlined primary text/border (same style as domain chips); like/dislike keep filled active background
 
 ## [2.1.2] - 2026-06-29
 
